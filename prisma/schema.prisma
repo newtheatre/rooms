@@ -1,0 +1,147 @@
+// Prisma Schema for Rehearsal Room Booking System
+// Version: 1.0
+// Database: Cloudflare D1 (SQLite)
+// 
+// This schema defines the data model for a rehearsal room booking system
+// that manages both internal rooms and external venues, with user authentication,
+// role-based access control, and push notification support.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../.generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// User accounts with role-based access and notification preferences
+/// 
+/// Roles:
+/// - STANDARD: Regular users who can create and manage their own bookings
+/// - ADMIN: Administrative users with full system access
+/// 
+/// Notification Channels: JSON array of enabled channels (e.g., ["EMAIL", "PUSH"])
+/// Notification Preferences: JSON array of subscribed notification types (e.g., ["BOOKING_UPDATES"])
+/// Note: Critical account updates are mandatory and handled separately
+model User {
+  id                      String   @id @default(uuid())
+  email                   String   @unique
+  name                    String
+  passwordHash            String   @map("password_hash")
+  role                    Role     @default(STANDARD)
+  notificationChannels    String   @default("[\"EMAIL\"]") @map("notification_channels") // JSON array
+  notificationPreferences String   @default("[\"BOOKING_UPDATES\"]") @map("notification_preferences") // JSON array
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  // Relations
+  bookings          Booking[]
+  pushSubscriptions PushSubscription[]
+
+  @@map("users")
+}
+
+/// Internal rehearsal rooms managed by the system
+/// 
+/// These are rooms directly controlled by the organization.
+/// Rooms can be marked as inactive to prevent new bookings while
+/// preserving historical data.
+model Room {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  capacity    Int?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  bookings Booking[]
+
+  @@map("rooms")
+}
+
+/// External venues available for booking
+/// 
+/// These are third-party spaces organized by campus, building, and room.
+/// Contact details are stored for administrative reference when booking.
+model ExternalVenue {
+  id             Int      @id @default(autoincrement())
+  campus         String?
+  building       String
+  roomName       String   @map("room_name")
+  contactDetails String?  @map("contact_details")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  bookings Booking[]
+
+  @@map("external_venues")
+}
+
+/// Booking requests and their lifecycle status
+/// 
+/// Status Flow:
+/// - PENDING: Initial state when user creates a booking request
+/// - CONFIRMED: Admin has approved the booking for an internal room
+/// - AWAITING_EXTERNAL: Admin has assigned an external venue, awaiting external confirmation
+/// - REJECTED: Admin has declined the booking request (see rejectionReason)
+/// - CANCELLED: User or Admin has cancelled the booking
+/// 
+/// Either roomId OR externalVenueId will be set, not both.
+/// userId is nullable to preserve booking history if user account is deleted.
+model Booking {
+  id                Int           @id @default(autoincrement())
+  userId            String?       @map("user_id")
+  roomId            Int?          @map("room_id")
+  externalVenueId   Int?          @map("external_venue_id")
+  eventTitle        String        @map("event_title")
+  numberOfAttendees Int?          @map("number_of_attendees")
+  startTime         DateTime      @map("start_time")
+  endTime           DateTime      @map("end_time")
+  status            BookingStatus @default(PENDING)
+  notes             String?
+  rejectionReason   String?       @map("rejection_reason")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  room          Room?          @relation(fields: [roomId], references: [id])
+  externalVenue ExternalVenue? @relation(fields: [externalVenueId], references: [id])
+
+  @@map("bookings")
+}
+
+/// Web Push notification subscriptions
+/// 
+/// Stores the subscription data required for sending web push notifications
+/// to users. Each subscription represents a single device/browser.
+/// Subscriptions are automatically removed if the user account is deleted.
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+
+/// User roles for access control
+enum Role {
+  STANDARD
+  ADMIN
+}
+
+/// Booking lifecycle states
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  AWAITING_EXTERNAL
+  REJECTED
+  CANCELLED
+}
