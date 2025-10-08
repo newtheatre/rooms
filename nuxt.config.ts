@@ -23,12 +23,12 @@ export default defineNuxtConfig({
 
   nitro: {
     experimental: {
-      openAPI: true
+      openAPI: true,
+      wasm: true
     },
     preset: 'cloudflare_module',
     cloudflare: {
       deployConfig: true,
-      nodeCompat: true,
       wrangler: {
         name: 'room-bookings',
         routes: [
