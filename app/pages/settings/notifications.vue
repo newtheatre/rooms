@@ -61,6 +61,7 @@ const sections: Array<{
   title: string
   description: string
   info?: boolean
+  warning?: boolean
   fields: NotificationField[]
 }> = [{
   title: 'Notification channels',
@@ -72,7 +73,8 @@ const sections: Array<{
   }, {
     name: 'push',
     label: 'Push notifications',
-    description: 'Receive desktop/mobile push notifications.'
+    description: 'Receive desktop/mobile push notifications. (Coming soon - not yet implemented)',
+    disabled: true
   }]
 }, {
   title: 'Critical account updates',
@@ -139,6 +141,7 @@ async function onChange(_fieldName: string) {
     />
 
     <UPageCard
+      v-if="section.fields.length > 0"
       variant="subtle"
       :ui="{ container: 'divide-y divide-default' }"
       :class="{ 'bg-gradient-to-br from-primary/5 to-default': section.info }"
@@ -163,5 +166,15 @@ async function onChange(_fieldName: string) {
         />
       </UFormField>
     </UPageCard>
+
+    <UAlert
+      v-else-if="section.warning"
+      icon="i-lucide-info"
+      color="warning"
+      variant="subtle"
+      :title="section.title"
+      :description="section.description"
+      class="mb-4"
+    />
   </div>
 </template>
