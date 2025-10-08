@@ -32,6 +32,55 @@
 
 import prisma from '../../database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Venues'],
+    summary: 'List external venues',
+    description: 'Retrieves all external venue records (admin only)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'query',
+        name: 'campus',
+        schema: { type: 'string' },
+        description: 'Filter by campus'
+      },
+      {
+        in: 'query',
+        name: 'building',
+        schema: { type: 'string' },
+        description: 'Filter by building name'
+      }
+    ],
+    responses: {
+      200: {
+        description: 'List of external venues',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer' },
+                  campus: { type: 'string', nullable: true },
+                  building: { type: 'string' },
+                  roomName: { type: 'string' },
+                  contactDetails: { type: 'string', nullable: true },
+                  createdAt: { type: 'string', format: 'date-time' },
+                  bookingCount: { type: 'integer' }
+                }
+              }
+            }
+          }
+        }
+      },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 

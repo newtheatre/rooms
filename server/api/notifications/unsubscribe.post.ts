@@ -27,6 +27,48 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Notifications'],
+    summary: 'Unsubscribe from push notifications',
+    description: 'Removes a web push notification subscription for the current user',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['endpoint'],
+            properties: {
+              endpoint: { type: 'string', format: 'uri', description: 'Push service endpoint URL' }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Unsubscribed successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                message: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Forbidden' },
+      404: { description: 'Subscription not found' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)

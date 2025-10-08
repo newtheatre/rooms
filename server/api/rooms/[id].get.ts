@@ -29,6 +29,49 @@
 
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Rooms'],
+    summary: 'Get room details',
+    description: 'Retrieves details for a specific room (admin only)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'path',
+        name: 'id',
+        required: true,
+        schema: { type: 'integer' },
+        description: 'Room ID'
+      }
+    ],
+    responses: {
+      200: {
+        description: 'Room details',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                name: { type: 'string' },
+                description: { type: 'string', nullable: true },
+                capacity: { type: 'integer', nullable: true },
+                isActive: { type: 'boolean' },
+                createdAt: { type: 'string', format: 'date-time' },
+                bookingCount: { type: 'integer' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Invalid room ID' },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin' },
+      404: { description: 'Room not found' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 

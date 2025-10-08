@@ -16,6 +16,58 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Users'],
+    summary: 'Reset user password',
+    description: 'Resets a user\'s password (admin only)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'path',
+        name: 'id',
+        required: true,
+        schema: { type: 'string' },
+        description: 'User ID'
+      }
+    ],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['password'],
+            properties: {
+              password: { type: 'string', description: 'New password (min 8 chars)' }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Password reset successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                success: { type: 'boolean' },
+                message: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error or attempting to change own password' },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin' },
+      404: { description: 'User not found' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authenticated admin user
   const { user: sessionUser } = await requireUserSession(event)

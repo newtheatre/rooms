@@ -19,6 +19,57 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Users'],
+    summary: 'Create user',
+    description: 'Creates a new user account (admin only)',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['name', 'email', 'role'],
+            properties: {
+              name: { type: 'string', description: 'User name' },
+              email: { type: 'string', format: 'email', description: 'User email' },
+              role: { type: 'string', enum: ['ADMIN', 'STANDARD'], description: 'User role' },
+              password: { type: 'string', description: 'Password (optional, will be auto-generated if not provided)' }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'User created successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                email: { type: 'string' },
+                role: { type: 'string' },
+                createdAt: { type: 'string', format: 'date-time' },
+                bookingCount: { type: 'integer' },
+                password: { type: 'string', description: 'Auto-generated password (only returned if password was not provided)' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin' },
+      409: { description: 'Email already exists' }
+    }
+  }
+})
+
 function generatePassword() {
   // Generate a random password with uppercase, lowercase, numbers, and symbols
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'

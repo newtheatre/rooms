@@ -31,6 +31,47 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Account'],
+    summary: 'Change password',
+    description: 'Changes the current user\'s password',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['currentPassword', 'newPassword'],
+            properties: {
+              currentPassword: { type: 'string', description: 'Current password' },
+              newPassword: { type: 'string', description: 'New password (min 8 chars, must contain uppercase, lowercase, and number)' }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Password updated successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                message: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated or invalid current password' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const sessionUser = await requireAuth(event)

@@ -26,6 +26,33 @@
 
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Account'],
+    summary: 'Delete account',
+    description: 'Deletes the current user\'s account (destructive action)',
+    security: [{ sessionAuth: [] }],
+    responses: {
+      200: {
+        description: 'Account deleted successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                message: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Admin accounts cannot be deleted' },
+      500: { description: 'Failed to delete account' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
 

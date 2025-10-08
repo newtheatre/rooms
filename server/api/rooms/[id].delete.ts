@@ -29,6 +29,43 @@
 
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Rooms'],
+    summary: 'Delete room (soft)',
+    description: 'Soft-deletes a room by setting isActive to false (admin only)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'path',
+        name: 'id',
+        required: true,
+        schema: { type: 'integer' },
+        description: 'Room ID'
+      }
+    ],
+    responses: {
+      200: {
+        description: 'Room deactivated successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                message: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Invalid room ID' },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin' },
+      404: { description: 'Room not found' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 

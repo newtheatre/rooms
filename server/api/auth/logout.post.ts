@@ -17,6 +17,30 @@
  * @route /api/auth/logout
  * @authenticated
  */
+
+defineRouteMeta({
+  openAPI: {
+    tags: ['Authentication'],
+    summary: 'User logout',
+    description: 'Invalidates the current user session',
+    responses: {
+      200: {
+        description: 'Logout successful',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                message: { type: 'string', example: 'Logged out successfully' }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   await clearUserSession(event)
 

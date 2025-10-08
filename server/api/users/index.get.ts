@@ -32,6 +32,54 @@
 import prisma from '../../database'
 import type { Prisma } from '../../../.generated/client'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Users'],
+    summary: 'List users',
+    description: 'Retrieves all user accounts (admin only)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'query',
+        name: 'role',
+        schema: { type: 'string', enum: ['ADMIN', 'STANDARD'] },
+        description: 'Filter by user role'
+      },
+      {
+        in: 'query',
+        name: 'search',
+        schema: { type: 'string' },
+        description: 'Search by name or email'
+      }
+    ],
+    responses: {
+      200: {
+        description: 'List of users',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  email: { type: 'string' },
+                  name: { type: 'string' },
+                  role: { type: 'string', enum: ['ADMIN', 'STANDARD'] },
+                  createdAt: { type: 'string', format: 'date-time' },
+                  bookingCount: { type: 'integer' }
+                }
+              }
+            }
+          }
+        }
+      },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require admin authentication
   await requireAdmin(event)

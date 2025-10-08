@@ -31,6 +31,53 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Bookings'],
+    summary: 'Create booking',
+    description: 'Creates a new booking request with PENDING status',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['eventTitle', 'startTime', 'endTime'],
+            properties: {
+              eventTitle: { type: 'string', description: 'Event title' },
+              numberOfAttendees: { type: 'integer', description: 'Expected number of attendees' },
+              startTime: { type: 'string', format: 'date-time', description: 'Event start time' },
+              endTime: { type: 'string', format: 'date-time', description: 'Event end time' },
+              notes: { type: 'string', description: 'Additional notes' }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      201: {
+        description: 'Booking created successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                userId: { type: 'string' },
+                eventTitle: { type: 'string' },
+                status: { type: 'string', enum: ['PENDING'] }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)

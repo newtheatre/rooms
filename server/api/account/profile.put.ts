@@ -31,6 +31,50 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Account'],
+    summary: 'Update user profile',
+    description: 'Updates the current user\'s name and/or email',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'User name' },
+              email: { type: 'string', format: 'email', description: 'User email' }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Profile updated successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                email: { type: 'string' },
+                name: { type: 'string' },
+                role: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated' },
+      409: { description: 'Email already in use' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const sessionUser = await requireAuth(event)

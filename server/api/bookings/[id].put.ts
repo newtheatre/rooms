@@ -45,6 +45,65 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Bookings'],
+    summary: 'Update booking',
+    description: 'Updates a booking (admins can assign rooms/change status, users can edit PENDING bookings)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'path',
+        name: 'id',
+        required: true,
+        schema: { type: 'integer' },
+        description: 'Booking ID'
+      }
+    ],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              roomId: { type: 'integer', description: 'Assign internal room (admin only)' },
+              externalVenueId: { type: 'integer', description: 'Assign external venue (admin only)' },
+              status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'], description: 'Booking status (admin only)' },
+              rejectionReason: { type: 'string', description: 'Reason for rejection (admin only)' },
+              eventTitle: { type: 'string', description: 'Event title (user)' },
+              numberOfAttendees: { type: 'integer', description: 'Number of attendees (user)' },
+              startTime: { type: 'string', format: 'date-time', description: 'Start time (user)' },
+              endTime: { type: 'string', format: 'date-time', description: 'End time (user)' },
+              notes: { type: 'string', description: 'Notes (user)' }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Booking updated successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                status: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Forbidden' },
+      404: { description: 'Booking not found' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)

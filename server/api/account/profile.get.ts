@@ -21,6 +21,36 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Account'],
+    summary: 'Get user profile',
+    description: 'Retrieves the current user\'s profile information',
+    security: [{ sessionAuth: [] }],
+    responses: {
+      200: {
+        description: 'User profile',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                email: { type: 'string' },
+                name: { type: 'string' },
+                role: { type: 'string', enum: ['ADMIN', 'STANDARD'] },
+                createdAt: { type: 'string', format: 'date-time' }
+              }
+            }
+          }
+        }
+      },
+      401: { description: 'Not authenticated' },
+      404: { description: 'User not found' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const sessionUser = await requireAuth(event)

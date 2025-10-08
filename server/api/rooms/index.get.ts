@@ -31,6 +31,49 @@
 
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Rooms'],
+    summary: 'List rooms',
+    description: 'Retrieves all internal rehearsal rooms (admin only)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'query',
+        name: 'includeInactive',
+        schema: { type: 'boolean' },
+        description: 'Include inactive rooms'
+      }
+    ],
+    responses: {
+      200: {
+        description: 'List of rooms',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer' },
+                  name: { type: 'string' },
+                  description: { type: 'string', nullable: true },
+                  capacity: { type: 'integer', nullable: true },
+                  isActive: { type: 'boolean' },
+                  createdAt: { type: 'string', format: 'date-time' },
+                  bookingCount: { type: 'integer' }
+                }
+              }
+            }
+          }
+        }
+      },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 

@@ -29,6 +29,56 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Authentication'],
+    summary: 'User login',
+    description: 'Authenticates a user with email and password credentials',
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['email', 'password'],
+            properties: {
+              email: {
+                type: 'string',
+                format: 'email',
+                description: 'User email address'
+              },
+              password: {
+                type: 'string',
+                description: 'User password'
+              }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Login successful',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'User ID' },
+                email: { type: 'string', description: 'User email' },
+                name: { type: 'string', description: 'User name' },
+                role: { type: 'string', enum: ['ADMIN', 'STANDARD'], description: 'User role' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Invalid credentials' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   const db = prisma
 

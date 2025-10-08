@@ -33,6 +33,43 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Users'],
+    summary: 'Delete user',
+    description: 'Deletes a user account (admin only)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'path',
+        name: 'id',
+        required: true,
+        schema: { type: 'string' },
+        description: 'User ID'
+      }
+    ],
+    responses: {
+      200: {
+        description: 'User deleted successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                message: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Cannot delete own account' },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin or cannot delete admin accounts' },
+      404: { description: 'User not found' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require admin authentication
   const sessionUser = await requireAdmin(event)

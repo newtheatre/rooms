@@ -38,6 +38,62 @@
 import prisma from '../../database'
 import { updateUserSchema } from '../../utils/validation'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Users'],
+    summary: 'Update user',
+    description: 'Updates a user account (admin only)',
+    security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'path',
+        name: 'id',
+        required: true,
+        schema: { type: 'string' },
+        description: 'User ID'
+      }
+    ],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'User name' },
+              email: { type: 'string', format: 'email', description: 'User email' },
+              role: { type: 'string', enum: ['ADMIN', 'STANDARD'], description: 'User role' }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'User updated successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                email: { type: 'string' },
+                name: { type: 'string' },
+                role: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error or attempting to change own role' },
+      401: { description: 'Not authenticated' },
+      403: { description: 'Not admin' },
+      404: { description: 'User not found' },
+      409: { description: 'Email already exists' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require admin authentication
   const sessionUser = await requireAdmin(event)

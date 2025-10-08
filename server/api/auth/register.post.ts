@@ -28,6 +28,60 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Authentication'],
+    summary: 'User registration',
+    description: 'Creates a new user account with email and password',
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['email', 'name', 'password'],
+            properties: {
+              email: {
+                type: 'string',
+                format: 'email',
+                description: 'User email address'
+              },
+              name: {
+                type: 'string',
+                description: 'User full name'
+              },
+              password: {
+                type: 'string',
+                description: 'Password (min 8 chars, must contain uppercase, lowercase, and number)'
+              }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      201: {
+        description: 'User created successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'User ID' },
+                email: { type: 'string', description: 'User email' },
+                name: { type: 'string', description: 'User name' },
+                role: { type: 'string', enum: ['STANDARD'], description: 'User role' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      409: { description: 'Email already exists' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   const db = prisma
 

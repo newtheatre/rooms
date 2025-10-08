@@ -31,6 +31,47 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Account'],
+    summary: 'Update notification preferences',
+    description: 'Updates the current user\'s notification preferences',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              notificationChannels: { type: 'array', items: { type: 'string', enum: ['EMAIL', 'PUSH'] } },
+              notificationPreferences: { type: 'array', items: { type: 'string', enum: ['BOOKING_UPDATES'] } }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Preferences updated successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                notificationChannels: { type: 'array', items: { type: 'string' } },
+                notificationPreferences: { type: 'array', items: { type: 'string' } }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const sessionUser = await requireAuth(event)

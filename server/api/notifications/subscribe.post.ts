@@ -32,6 +32,55 @@
  */
 import prisma from '~~/server/database'
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Notifications'],
+    summary: 'Subscribe to push notifications',
+    description: 'Registers a web push notification subscription for the current user',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['endpoint', 'keys'],
+            properties: {
+              endpoint: { type: 'string', format: 'uri', description: 'Push service endpoint URL' },
+              keys: {
+                type: 'object',
+                required: ['p256dh', 'auth'],
+                properties: {
+                  p256dh: { type: 'string', description: 'p256dh key' },
+                  auth: { type: 'string', description: 'Auth key' }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      201: {
+        description: 'Subscription created successfully',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                endpoint: { type: 'string' }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)
