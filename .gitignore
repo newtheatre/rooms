@@ -29,3 +29,6 @@ logs
 # Prisma
 prisma/dev.db
 .generated
+
+# VSCode settings
+.vscode
