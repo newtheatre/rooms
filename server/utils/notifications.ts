@@ -91,6 +91,8 @@ export async function sendEmail(user: User, subject: string, content: string): P
     to: user.email,
     subject,
     text: content
+  }).catch((err) => {
+    console.error('Failed to send email:', err)
   })
 }
 
@@ -115,6 +117,8 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
     to: emailAddresses,
     subject,
     text: content
+  }).catch((err) => {
+    console.error('Failed to send batch email:', err)
   })
 }
 
