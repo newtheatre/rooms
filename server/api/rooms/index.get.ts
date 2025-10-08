@@ -2,31 +2,29 @@
  * List Rooms Endpoint
  *
  * Retrieves all internal rehearsal rooms.
- * Admin-only endpoint.
+ * - Regular users: Get basic room info (id, name, description, capacity) for active rooms only
+ * - Admins: Get full details including isActive flag, creation date, and booking counts
  *
  * Query Parameters:
- * - includeInactive?: boolean (default: false, include inactive rooms)
+ * - includeInactive?: boolean (default: false, admin only - include inactive rooms)
  *
  * Process:
- * 1. Require admin authentication
- * 2. Build query filter for active/inactive rooms
- * 3. Fetch rooms from database
- * 4. Optionally include booking count per room
- * 5. Return rooms array
+ * 1. Require authentication
+ * 2. Check user role
+ * 3. Build query filter for active/inactive rooms
+ * 4. Fetch rooms from database
+ * 5. Return full data for admins, limited data for users
  *
  * Response:
- * - 200: Array of room objects
+ * - 200: Array of room objects (full for admin, limited for users)
  * - 401: Not authenticated
- * - 403: Not admin
  *
  * Uses nuxt-auth-utils:
  * - requireUserSession(event)
- * - Check user.role === 'ADMIN'
  *
  * @method GET
  * @route /api/rooms
  * @authenticated
- * @admin-only
  */
 
 import prisma from '~~/server/database'
@@ -35,14 +33,14 @@ defineRouteMeta({
   openAPI: {
     tags: ['Rooms'],
     summary: 'List rooms',
-    description: 'Retrieves all internal rehearsal rooms (admin only)',
+    description: 'Retrieves internal rehearsal rooms (all users can view active rooms, admins see all details)',
     security: [{ sessionAuth: [] }],
     parameters: [
       {
         in: 'query',
         name: 'includeInactive',
         schema: { type: 'boolean' },
-        description: 'Include inactive rooms'
+        description: 'Include inactive rooms (admin only)'
       }
     ],
     responses: {
@@ -59,39 +57,56 @@ defineRouteMeta({
                   name: { type: 'string' },
                   description: { type: 'string', nullable: true },
                   capacity: { type: 'integer', nullable: true },
-                  isActive: { type: 'boolean' },
-                  createdAt: { type: 'string', format: 'date-time' },
-                  bookingCount: { type: 'integer' }
+                  isActive: { type: 'boolean', description: 'Admin only' },
+                  createdAt: { type: 'string', format: 'date-time', description: 'Admin only' },
+                  bookingCount: { type: 'integer', description: 'Admin only' }
                 }
               }
             }
           }
         }
       },
-      401: { description: 'Not authenticated' },
-      403: { description: 'Not admin' }
+      401: { description: 'Not authenticated' }
     }
   }
 })
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  // Require authentication but allow all users
+  const user = await requireAuth(event)
 
   const query = getQuery(event)
   const includeInactive = query.includeInactive === 'true'
 
+  // Only admins can see inactive rooms
+  const isAdmin = user.role === 'ADMIN'
+  const showInactive = isAdmin && includeInactive
+
   const rooms = await prisma.room.findMany({
-    where: includeInactive ? {} : { isActive: true },
+    where: showInactive ? {} : { isActive: true },
     include: {
-      _count: {
-        select: { bookings: true }
-      }
+      _count: isAdmin
+        ? {
+            select: { bookings: true }
+          }
+        : undefined
     },
     orderBy: { name: 'asc' }
   })
 
-  return rooms.map(room => ({
-    ...room,
-    bookingCount: room._count.bookings
-  }))
+  // Return full data for admins, limited data for regular users
+  if (isAdmin) {
+    return rooms.map(room => ({
+      ...room,
+      bookingCount: room._count?.bookings || 0
+    }))
+  } else {
+    // Regular users only get basic info
+    return rooms.map(room => ({
+      id: room.id,
+      name: room.name,
+      description: room.description,
+      capacity: room.capacity
+    }))
+  }
 })

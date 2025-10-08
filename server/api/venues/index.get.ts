@@ -2,32 +2,30 @@
  * List External Venues Endpoint
  *
  * Retrieves all external venue records.
- * Admin-only endpoint.
+ * - Regular users: Get basic venue info (id, campus, building, roomName, contactDetails)
+ * - Admins: Get full details including creation date and booking counts
  *
  * Query Parameters:
  * - campus?: string (filter by campus)
  * - building?: string (filter by building)
  *
  * Process:
- * 1. Require admin authentication
- * 2. Build query filters from query params
- * 3. Fetch venues from database
- * 4. Optionally include booking count per venue
- * 5. Return venues array
+ * 1. Require authentication
+ * 2. Check user role
+ * 3. Build query filters from query params
+ * 4. Fetch venues from database
+ * 5. Return full data for admins, limited data for users
  *
  * Response:
- * - 200: Array of venue objects
+ * - 200: Array of venue objects (full for admin, limited for users)
  * - 401: Not authenticated
- * - 403: Not admin
  *
  * Uses nuxt-auth-utils:
  * - requireUserSession(event)
- * - Check user.role === 'ADMIN'
  *
  * @method GET
  * @route /api/venues
  * @authenticated
- * @admin-only
  */
 
 import prisma from '../../database'
@@ -36,7 +34,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Venues'],
     summary: 'List external venues',
-    description: 'Retrieves all external venue records (admin only)',
+    description: 'Retrieves external venue records (all users can view, admins see full details)',
     security: [{ sessionAuth: [] }],
     parameters: [
       {
@@ -67,22 +65,22 @@ defineRouteMeta({
                   building: { type: 'string' },
                   roomName: { type: 'string' },
                   contactDetails: { type: 'string', nullable: true },
-                  createdAt: { type: 'string', format: 'date-time' },
-                  bookingCount: { type: 'integer' }
+                  createdAt: { type: 'string', format: 'date-time', description: 'Admin only' },
+                  bookingCount: { type: 'integer', description: 'Admin only' }
                 }
               }
             }
           }
         }
       },
-      401: { description: 'Not authenticated' },
-      403: { description: 'Not admin' }
+      401: { description: 'Not authenticated' }
     }
   }
 })
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  // Require authentication but allow all users
+  const user = await requireAuth(event)
 
   const query = getQuery(event)
   const campus = query.campus as string | undefined
@@ -97,12 +95,16 @@ export default defineEventHandler(async (event) => {
   if (campus) where.campus = campus
   if (building) where.building = { contains: building }
 
+  const isAdmin = user.role === 'ADMIN'
+
   const venues = await prisma.externalVenue.findMany({
     where,
     include: {
-      _count: {
-        select: { bookings: true }
-      }
+      _count: isAdmin
+        ? {
+            select: { bookings: true }
+          }
+        : undefined
     },
     orderBy: [
       { campus: 'asc' },
@@ -111,8 +113,20 @@ export default defineEventHandler(async (event) => {
     ]
   })
 
-  return venues.map(venue => ({
-    ...venue,
-    bookingCount: venue._count.bookings
-  }))
+  // Return full data for admins, limited data for regular users
+  if (isAdmin) {
+    return venues.map(venue => ({
+      ...venue,
+      bookingCount: venue._count?.bookings || 0
+    }))
+  } else {
+    // Regular users only get basic info
+    return venues.map(venue => ({
+      id: venue.id,
+      campus: venue.campus,
+      building: venue.building,
+      roomName: venue.roomName,
+      contactDetails: venue.contactDetails
+    }))
+  }
 })
