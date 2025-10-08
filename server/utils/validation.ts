@@ -141,6 +141,43 @@ export const createBookingSchema = z.object({
 )
 
 /**
+ * Admin create booking schema (allows setting userId, roomId, externalVenueId, status)
+ */
+export const adminCreateBookingSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+  eventTitle: z.string().min(1, 'Event title is required').max(255),
+  numberOfAttendees: z.number().int().positive().optional(),
+  startTime: z.string().datetime('Invalid start time'),
+  endTime: z.string().datetime('Invalid end time'),
+  roomId: z.number().int().positive().optional(),
+  externalVenueId: z.number().int().positive().optional(),
+  status: bookingStatusSchema.optional(),
+  notes: z.string().max(1000).optional()
+}).refine(
+  (data) => {
+    const start = new Date(data.startTime)
+    const end = new Date(data.endTime)
+    return end > start
+  },
+  {
+    message: 'End time must be after start time',
+    path: ['endTime']
+  }
+).refine(
+  (data) => {
+    // Can't assign both room and external venue
+    if (data.roomId && data.externalVenueId) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'Cannot assign both room and external venue',
+    path: ['roomId']
+  }
+)
+
+/**
  * Update booking schema (admin)
  */
 export const updateBookingSchema = z.object({

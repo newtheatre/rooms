@@ -2,18 +2,25 @@
  * Create Booking Endpoint
  *
  * Creates a new booking request for the authenticated user.
+ * Admins can create bookings on behalf of other users.
  *
- * Request Body:
+ * Request Body (User):
  * - eventTitle: string
  * - numberOfAttendees?: number
  * - startTime: ISO 8601 datetime
  * - endTime: ISO 8601 datetime
  * - notes?: string
  *
+ * Request Body (Admin - additional fields):
+ * - userId?: string (create on behalf of user)
+ * - roomId?: number (assign internal room)
+ * - externalVenueId?: number (assign external venue)
+ * - status?: BookingStatus (override status)
+ *
  * Process:
  * 1. Get authenticated user from session
- * 2. Validate request body with createBookingSchema
- * 3. Create booking in database with status: PENDING
+ * 2. Validate request body (admin vs user schema)
+ * 3. Create booking in database
  * 4. TODO: Notify admins of new booking request
  * 5. Return created booking
  *
@@ -30,6 +37,7 @@
  * @authenticated
  */
 import prisma from '~~/server/database'
+import { createBookingSchema, adminCreateBookingSchema } from '~~/server/utils/validation'
 
 defineRouteMeta({
   openAPI: {
@@ -84,19 +92,43 @@ export default defineEventHandler(async (event) => {
 
   const db = prisma
 
-  // Parse and validate request body
-  const data = await readValidatedBody(event, createBookingSchema.parse)
+  // Check if user is admin
+  const isAdmin = user.role === 'ADMIN'
 
-  // Create booking with PENDING status
+  // Get raw body first to check if it's an admin request
+  const rawBody = await readBody(event)
+
+  // Parse and validate request body based on role and presence of userId
+  let validatedData
+  let bookingUserId = user.id
+  let status: 'PENDING' | 'CONFIRMED' | 'AWAITING_EXTERNAL' | 'REJECTED' | 'CANCELLED' = 'PENDING'
+  let roomId: number | undefined
+  let externalVenueId: number | undefined
+
+  if (isAdmin && rawBody.userId) {
+    // Admin creating booking for another user
+    validatedData = adminCreateBookingSchema.parse(rawBody)
+    bookingUserId = validatedData.userId
+    status = validatedData.status || (validatedData.roomId ? 'CONFIRMED' : validatedData.externalVenueId ? 'AWAITING_EXTERNAL' : 'PENDING')
+    roomId = validatedData.roomId
+    externalVenueId = validatedData.externalVenueId
+  } else {
+    // Regular user or admin creating for themselves
+    validatedData = createBookingSchema.parse(rawBody)
+  }
+
+  // Create booking
   const booking = await db.booking.create({
     data: {
-      userId: user.id,
-      eventTitle: data.eventTitle,
-      numberOfAttendees: data.numberOfAttendees,
-      startTime: new Date(data.startTime),
-      endTime: new Date(data.endTime),
-      notes: data.notes,
-      status: 'PENDING'
+      userId: bookingUserId,
+      eventTitle: validatedData.eventTitle,
+      numberOfAttendees: validatedData.numberOfAttendees,
+      startTime: new Date(validatedData.startTime),
+      endTime: new Date(validatedData.endTime),
+      notes: validatedData.notes,
+      status,
+      roomId,
+      externalVenueId
     },
     include: {
       user: {
