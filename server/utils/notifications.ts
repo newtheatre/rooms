@@ -88,6 +88,7 @@ export async function sendEmail(user: User, subject: string, content: string): P
 
   const { error } = await resend.emails.send({
     from: `"Room Bookings" <${process.env.EMAIL}>`,
+    replyTo: `"Theatre Manager" <theatremanager@newtheatre.org.uk>`,
     to: user.email,
     subject,
     text: content
@@ -116,6 +117,7 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
   // Send as batch with BCC (blind carbon copy)
   const { error } = await resend.emails.send({
     from: `"Room Bookings" <${process.env.EMAIL}>`,
+    replyTo: `"Theatre Manager" <theatremanager@newtheatre.org.uk>`,
     to: emailAddresses,
     subject,
     text: content
