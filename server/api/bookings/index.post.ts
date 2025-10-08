@@ -21,7 +21,7 @@
  * 1. Get authenticated user from session
  * 2. Validate request body (admin vs user schema)
  * 3. Create booking in database
- * 4. TODO: Notify admins of new booking request
+ * 4. Send confirmation email to user
  * 5. Return created booking
  *
  * Response:
@@ -38,6 +38,7 @@
  */
 import prisma from '~~/server/database'
 import { createBookingSchema, adminCreateBookingSchema } from '~~/server/utils/validation'
+import { notifyBookingUpdate } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -131,17 +132,25 @@ export default defineEventHandler(async (event) => {
       externalVenueId
     },
     include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      },
+      user: true,
       room: true,
       externalVenue: true
     }
   })
+
+  // Send confirmation notification
+  if (booking.user) {
+    const message = status === 'CONFIRMED'
+      ? `Your booking "${booking.eventTitle}" has been confirmed${booking.room ? ` in ${booking.room.name}` : ''}.`
+      : status === 'AWAITING_EXTERNAL'
+        ? `Your booking "${booking.eventTitle}" has been submitted and is awaiting external venue confirmation.`
+        : `Your booking request "${booking.eventTitle}" has been submitted and is pending review.`
+
+    // Send notification (async, don't await)
+    notifyBookingUpdate(booking.user, booking, message).catch((err) => {
+      console.error('Failed to send booking creation notification:', err)
+    })
+  }
 
   // Set 201 status code
   setResponseStatus(event, 201)

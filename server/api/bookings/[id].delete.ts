@@ -9,7 +9,8 @@
  * 3. Fetch existing booking
  * 4. Check authorization (admin or booking owner)
  * 5. Delete booking from database
- * 6. Return success message
+ * 6. Send cancellation notification to user
+ * 7. Return success message
  *
  * Response:
  * - 200: { message: "Booking deleted successfully" }
@@ -27,6 +28,7 @@
  */
 
 import prisma from '~~/server/database'
+import { notifyBookingUpdate } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -78,7 +80,10 @@ export default defineEventHandler(async (event) => {
 
   // Check if booking exists
   const booking = await prisma.booking.findUnique({
-    where: { id }
+    where: { id },
+    include: {
+      user: true
+    }
   })
 
   if (!booking) {
@@ -93,6 +98,18 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 403,
       message: 'Not authorized to delete this booking'
+    })
+  }
+
+  // Send notification before deletion if user exists
+  if (booking.user) {
+    const message = user.role === 'ADMIN'
+      ? `Your booking "${booking.eventTitle}" has been cancelled by an administrator.`
+      : `Your booking "${booking.eventTitle}" has been cancelled.`
+
+    // Send notification (async, don't await)
+    notifyBookingUpdate(booking.user, booking, message).catch((err) => {
+      console.error('Failed to send booking cancellation notification:', err)
     })
   }
 

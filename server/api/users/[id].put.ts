@@ -16,7 +16,8 @@
  * 4. Validate request body
  * 5. Check if new email already exists (if changing email)
  * 6. Update user in database
- * 7. Return updated user
+ * 7. Send notification about account changes
+ * 8. Return updated user
  *
  * Response:
  * - 200: Updated user object (without passwordHash)
@@ -37,6 +38,7 @@
  */
 import prisma from '../../database'
 import { updateUserSchema } from '../../utils/validation'
+import { sendCriticalNotification } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -163,6 +165,46 @@ export default defineEventHandler(async (event) => {
       createdAt: true
     }
   })
+
+  // Fetch full user record for notification
+  const fullUser = await db.user.findUnique({
+    where: { id: userId }
+  })
+
+  if (fullUser) {
+    // Build notification message for changes
+    const changes: string[] = []
+    if (data.role && data.role !== existingUser.role) {
+      changes.push(`Role changed to ${data.role}`)
+    }
+    if (data.email && data.email !== existingUser.email) {
+      changes.push(`Email changed to ${data.email}`)
+    }
+    if (data.name && data.name !== existingUser.name) {
+      changes.push(`Name changed to ${data.name}`)
+    }
+
+    if (changes.length > 0) {
+      const notificationContent = `
+        An administrator has made changes to your account:
+        
+        ${changes.map(change => `• ${change}`).join('\n')}
+        
+        If you have any questions about these changes, please contact an administrator.
+        
+        Time: ${new Date().toLocaleString()}
+      `
+
+      // Send critical notification (async, don't await)
+      sendCriticalNotification(
+        fullUser,
+        'Account Updated - Room Booking System',
+        notificationContent
+      ).catch((err) => {
+        console.error('Failed to send account update notification:', err)
+      })
+    }
+  }
 
   return updatedUser
 })

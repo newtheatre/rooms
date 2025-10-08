@@ -44,6 +44,7 @@
  * @authenticated
  */
 import prisma from '~~/server/database'
+import { notifyBookingUpdate } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -145,6 +146,9 @@ export default defineEventHandler(async (event) => {
     // Admin can update booking assignment and status
     const data = await readValidatedBody(event, updateBookingSchema.parse)
 
+    // Track if status changed for notification
+    const statusChanged = data.status && data.status !== existingBooking.status
+
     // Update booking
     const updatedBooking = await db.booking.update({
       where: { id },
@@ -159,13 +163,39 @@ export default defineEventHandler(async (event) => {
           select: {
             id: true,
             name: true,
-            email: true
+            email: true,
+            notificationChannels: true,
+            notificationPreferences: true
           }
         },
         room: true,
         externalVenue: true
       }
     })
+
+    // Send notification if status changed
+    if (statusChanged && updatedBooking.user) {
+      const statusMessages: Record<string, string> = {
+        CONFIRMED: `Your booking "${updatedBooking.eventTitle}" has been confirmed in ${updatedBooking.room ? `${updatedBooking.room.name}` : `${updatedBooking.externalVenue?.building} - ${updatedBooking.externalVenue?.roomName}`}.`,
+        AWAITING_EXTERNAL: `Your booking "${updatedBooking.eventTitle}" has been assigned to an external venue and is awaiting confirmation.`,
+        REJECTED: `Your booking "${updatedBooking.eventTitle}" has been rejected${updatedBooking.rejectionReason ? `: ${updatedBooking.rejectionReason}` : '.'}`,
+        CANCELLED: `Your booking "${updatedBooking.eventTitle}" has been cancelled.`
+      }
+
+      const message = statusMessages[updatedBooking.status] || `Your booking "${updatedBooking.eventTitle}" status has been updated to ${updatedBooking.status}.`
+
+      // Fetch full user record for notifications
+      const fullUser = await db.user.findUnique({
+        where: { id: updatedBooking.user.id }
+      })
+
+      if (fullUser) {
+        // Send notification (async, don't await)
+        notifyBookingUpdate(fullUser, updatedBooking, message).catch((err) => {
+          console.error('Failed to send booking notification:', err)
+        })
+      }
+    }
 
     return updatedBooking
   } else {

@@ -12,8 +12,9 @@
  * 1. Require admin authentication
  * 2. Parse user ID from route params
  * 3. Prevent admin from deleting their own account
- * 4. Delete user from database (Prisma handles CASCADE and SET NULL)
- * 5. Return success message
+ * 4. Send deletion notification to user
+ * 5. Delete user from database (Prisma handles CASCADE and SET NULL)
+ * 6. Return success message
  *
  * Response:
  * - 200: { message: "User deleted successfully" }
@@ -32,6 +33,7 @@
  * @admin-only
  */
 import prisma from '~~/server/database'
+import { sendCriticalNotification } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -114,6 +116,26 @@ export default defineEventHandler(async (event) => {
       message: 'Admin accounts cannot be deleted. Change their role to STANDARD first.'
     })
   }
+
+  // Send deletion notification before deleting
+  const notificationContent = `
+    Your account has been deleted by an administrator.
+    
+    All your personal information has been removed, but your booking history has been preserved for record-keeping purposes.
+    
+    If you have questions about this action, please contact an administrator.
+    
+    Time: ${new Date().toLocaleString()}
+  `
+
+  // Send email before deletion (await this one to ensure it goes out)
+  await sendCriticalNotification(
+    existingUser,
+    'Account Deleted by Administrator - Room Booking System',
+    notificationContent
+  ).catch((err) => {
+    console.error('Failed to send admin account deletion notification:', err)
+  })
 
   // Delete user (CASCADE will handle push subscriptions, SET NULL for bookings)
   await db.user.delete({

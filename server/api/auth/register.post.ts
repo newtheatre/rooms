@@ -15,7 +15,8 @@
  * 4. Create user in database with role: STANDARD
  * 5. Set default notification preferences
  * 6. Create session using setUserSession()
- * 7. Return user data (without password hash)
+ * 7. Send welcome email
+ * 8. Return user data (without password hash)
  *
  * Response:
  * - 201: { id, email, name, role }
@@ -27,6 +28,7 @@
  * @public
  */
 import prisma from '~~/server/database'
+import { sendEmail } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -120,6 +122,35 @@ export default defineEventHandler(async (event) => {
       role: true
     }
   })
+
+  // Send welcome email
+  const fullUser = await db.user.findUnique({
+    where: { id: user.id }
+  })
+
+  if (fullUser) {
+    const welcomeContent = `
+      Welcome to the Room Booking System, ${user.name}!
+      
+      Your account has been created successfully. You can now:
+      • Request room bookings for your events
+      • View your booking history
+      • Manage your notification preferences
+      
+      If you have any questions, please contact an administrator.
+      
+      Account created: ${new Date().toLocaleString()}
+    `
+
+    // Send welcome email (async, don't await)
+    sendEmail(
+      fullUser,
+      'Welcome to NNT\'s Room Booking System',
+      welcomeContent
+    ).catch((err) => {
+      console.error('Failed to send welcome email:', err)
+    })
+  }
 
   // Create session (auto-login after registration)
   await setUserSession(event, {

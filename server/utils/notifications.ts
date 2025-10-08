@@ -8,6 +8,7 @@
  */
 
 import type { User, Booking } from '@prisma/client'
+import resend from './resend'
 
 /**
  * Available notification channels
@@ -82,9 +83,15 @@ export function shouldNotify(user: User, notificationType: NotificationPreferenc
  * TODO: Implement email service integration
  */
 export async function sendEmail(user: User, subject: string, content: string): Promise<void> {
-  // TODO: Implement email sending
   // Recommended services: Resend, SendGrid, AWS SES, Cloudflare Email Routing
   console.log(`[EMAIL] To: ${user.email}, Subject: ${subject}`)
+
+  await resend.emails.send({
+    from: `"Room Bookings" <${process.env.EMAIL}>`,
+    to: user.email,
+    subject,
+    text: content
+  })
 }
 
 /**

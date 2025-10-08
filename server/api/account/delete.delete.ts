@@ -6,10 +6,11 @@
  *
  * Process:
  * 1. Require user authentication
- * 2. Delete user's push subscriptions (cascade)
- * 3. Set bookings.userId to NULL (preserve booking history)
- * 4. Delete user account
- * 5. Clear session
+ * 2. Send confirmation email
+ * 3. Delete user's push subscriptions (cascade)
+ * 4. Set bookings.userId to NULL (preserve booking history)
+ * 5. Delete user account
+ * 6. Clear session
  *
  * Response:
  * - 200: { message: "Account deleted successfully" }
@@ -25,6 +26,7 @@
  */
 
 import prisma from '~~/server/database'
+import { sendCriticalNotification } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -66,6 +68,33 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    // Fetch full user record for notification
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id }
+    })
+
+    // Send deletion confirmation email before deleting
+    if (fullUser) {
+      const notificationContent = `
+        Your account has been successfully deleted from the Room Booking System.
+        
+        All your personal information has been removed, but your booking history has been preserved for record-keeping purposes.
+        
+        If you did not request this deletion, please contact support immediately.
+        
+        Time: ${new Date().toLocaleString()}
+      `
+
+      // Send email before deletion (await this one to ensure it goes out)
+      await sendCriticalNotification(
+        fullUser,
+        'Account Deleted - Room Booking System',
+        notificationContent
+      ).catch((err) => {
+        console.error('Failed to send account deletion notification:', err)
+      })
+    }
+
     // Delete user account
     // Push subscriptions will be cascade deleted
     // Bookings will have userId set to NULL (onDelete: SetNull in schema)

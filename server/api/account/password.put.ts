@@ -13,7 +13,8 @@
  * 3. Verify current password
  * 4. Hash new password
  * 5. Update password in database
- * 6. Return success message
+ * 6. Send security notification email
+ * 7. Return success message
  *
  * Response:
  * - 200: { message: "Password updated successfully" }
@@ -30,6 +31,7 @@
  * @authenticated
  */
 import prisma from '~~/server/database'
+import { sendCriticalNotification } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -127,6 +129,30 @@ export default defineEventHandler(async (event) => {
       passwordHash: newPasswordHash
     }
   })
+
+  // Fetch full user record for notification
+  const fullUser = await db.user.findUnique({
+    where: { id: user.id }
+  })
+
+  if (fullUser) {
+    // Send security notification (async, don't await)
+    const notificationContent = `
+      Your password was recently changed.
+      
+      If you did not make this change, please contact support immediately.
+      
+      Time: ${new Date().toLocaleString()}
+    `
+
+    sendCriticalNotification(
+      fullUser,
+      'Password Changed - Room Booking System',
+      notificationContent
+    ).catch((err) => {
+      console.error('Failed to send password change notification:', err)
+    })
+  }
 
   return {
     message: 'Password updated successfully'
