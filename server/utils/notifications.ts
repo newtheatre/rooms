@@ -87,7 +87,7 @@ export async function sendEmail(user: User, subject: string, content: string): P
   console.log(`[EMAIL] To: ${user.email}, Subject: ${subject}`)
 
   const { data, error } = await resend.emails.send({
-    from: `"Room Bookings" <${process.env.EMAIL}>`,
+    from: `"Room Bookings" <no-reply@rooms.newtheatre.org.uk>`,
     to: user.email,
     subject,
     text: content
@@ -95,6 +95,8 @@ export async function sendEmail(user: User, subject: string, content: string): P
 
   if (error) {
     console.log(`[ERROR] ${error}`)
+  } else if (data) {
+    console.log(`[EMAIL] Success: ${data}`)
   }
 }
 
@@ -115,7 +117,7 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
 
   // Send as batch with BCC (blind carbon copy)
   const { data, error } = await resend.emails.send({
-    from: `"Room Bookings" <${process.env.EMAIL}>`,
+    from: `"Room Bookings" <no-reply@rooms.newtheatre.org.uk>`,
     to: emailAddresses,
     subject,
     text: content
@@ -123,6 +125,8 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
 
   if (error) {
     console.log(`[ERROR] ${error}`)
+  } else if (data) {
+    console.log(`[EMAIL] Success: ${data}`)
   }
 }
 
