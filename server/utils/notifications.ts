@@ -7,7 +7,7 @@
  * @module server/utils/notifications
  */
 
-import type { User, Booking } from '~~/.generated/client'
+import type { User, Booking } from '@prisma/client'
 import resend from './resend'
 
 /**
