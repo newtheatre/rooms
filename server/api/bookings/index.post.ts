@@ -145,8 +145,8 @@ export default defineEventHandler(async (event) => {
         ? `Your booking "${booking.eventTitle}" has been submitted and is awaiting external venue confirmation.`
         : `Your booking request "${booking.eventTitle}" has been submitted and is pending review.`
 
-    // Send notification (async, don't await)
-    notifyBookingUpdate(booking.user, booking, message).catch((err) => {
+    // Send notification
+    await notifyBookingUpdate(booking.user, booking, message).catch((err) => {
       console.error('Failed to send booking creation notification:', err)
     })
   }
