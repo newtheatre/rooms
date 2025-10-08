@@ -4,30 +4,14 @@ import type { FormSubmitEvent } from '#ui/types'
 import type { CalendarDate } from '@internationalized/date'
 import { DateFormatter } from '@internationalized/date'
 
-const props = defineProps<{
-  open?: boolean
-}>()
-
 const emit = defineEmits<{
   (e: 'refresh'): void
   (e: 'update:open', value: boolean): void
 }>()
 
 const toast = useToast()
-const internalOpen = ref(false)
+const open = ref(false)
 const isSubmitting = ref(false)
-
-// Computed to handle both controlled and uncontrolled modes
-const open = computed({
-  get: () => props.open !== undefined ? props.open : internalOpen.value,
-  set: (value) => {
-    if (props.open !== undefined) {
-      emit('update:open', value)
-    } else {
-      internalOpen.value = value
-    }
-  }
-})
 
 // Load available rooms
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
@@ -175,11 +159,12 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
     title="Request a Booking"
     description="Submit a booking request for review"
   >
-    <slot>
+    <slot :open="() => { emit('update:open', true) }">
       <UButton
         label="New Booking"
         icon="i-lucide-plus"
         size="lg"
+        @click="emit('update:open', true)"
       />
     </slot>
 

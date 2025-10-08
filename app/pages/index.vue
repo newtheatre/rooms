@@ -30,7 +30,6 @@ definePageMeta({
 })
 
 const { user } = useUserSession()
-const showBookingModal = ref(false)
 </script>
 
 <template>
@@ -94,10 +93,11 @@ const showBookingModal = ref(false)
               </UCard>
             </NuxtLink>
 
-            <BookingsUserCreateModal v-model:open="showBookingModal">
-              <template #default>
+            <BookingsUserCreateModal>
+              <template #default="{ open: openModal }">
                 <UCard
                   class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  @click="openModal"
                 >
                   <div class="flex items-center gap-4">
                     <div class="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
@@ -111,7 +111,7 @@ const showBookingModal = ref(false)
                         New Booking
                       </p>
                       <p class="text-sm text-gray-500 dark:text-gray-400">
-                        Request a new booking
+                        Request a room
                       </p>
                     </div>
                   </div>
