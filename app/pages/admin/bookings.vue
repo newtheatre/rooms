@@ -442,10 +442,38 @@ const columns: TableColumn<Booking>[] = [
     },
     cell: ({ row }) => {
       const booking = row.original
-      return h('div', undefined, [
-        h('p', { class: 'font-medium text-highlighted' }, booking.eventTitle),
+
+      // Build notes popover if present
+      const notesPopover = booking.notes
+        ? h(resolveComponent('UPopover'), {
+            mode: 'hover'
+          }, {
+            default: () => h(resolveComponent('UButton'), {
+              icon: 'i-lucide-sticky-note',
+              color: 'primary',
+              variant: 'ghost',
+              size: 'xs',
+              class: 'cursor-help'
+            }),
+            content: () => h('div', {
+              class: 'p-4 max-w-sm'
+            }, [
+              h('p', { class: 'text-sm font-semibold mb-2' }, 'Notes'),
+              h('p', { class: 'text-sm whitespace-pre-wrap' }, booking.notes || '')
+            ])
+          })
+        : null
+
+      // Build the cell content
+      const children = [
+        h('p', { class: 'font-medium text-highlighted flex items-center gap-2' }, [
+          booking.eventTitle,
+          notesPopover
+        ].filter(Boolean)),
         h('p', { class: 'text-sm text-muted' }, booking.user?.name || 'Unknown User')
-      ])
+      ]
+
+      return h('div', undefined, children)
     }
   },
   {
