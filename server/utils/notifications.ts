@@ -86,14 +86,16 @@ export async function sendEmail(user: User, subject: string, content: string): P
   // Recommended services: Resend, SendGrid, AWS SES, Cloudflare Email Routing
   console.log(`[EMAIL] To: ${user.email}, Subject: ${subject}`)
 
-  await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: `"Room Bookings" <${process.env.EMAIL}>`,
     to: user.email,
     subject,
     text: content
-  }).catch((err) => {
-    console.error('Failed to send email:', err)
   })
+
+  if (error) {
+    console.log(`[ERROR] ${error}`)
+  }
 }
 
 /**
@@ -112,14 +114,16 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
   console.log(`[BATCH EMAIL] To: ${emailAddresses.length} recipients, Subject: ${subject}`)
 
   // Send as batch with BCC (blind carbon copy)
-  await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: `"Room Bookings" <${process.env.EMAIL}>`,
     to: emailAddresses,
     subject,
     text: content
-  }).catch((err) => {
-    console.error('Failed to send batch email:', err)
   })
+
+  if (error) {
+    console.log(`[ERROR] ${error}`)
+  }
 }
 
 /**
