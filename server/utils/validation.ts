@@ -54,7 +54,7 @@ export const notificationChannelSchema = z.enum(['EMAIL', 'PUSH'])
 /**
  * Notification preference schema
  */
-export const notificationPreferenceSchema = z.enum(['BOOKING_UPDATES'])
+export const notificationPreferenceSchema = z.enum(['BOOKING_UPDATES', 'ADMIN_NEW_BOOKINGS'])
 
 /**
  * User preferences update schema

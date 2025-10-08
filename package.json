@@ -38,8 +38,5 @@
   "resolutions": {
     "unimport": "4.1.1"
   },
-  "overrides": {
-    "vite": "npm:rolldown-vite@latest"
-  },
   "packageManager": "bun@1.2.23"
 }

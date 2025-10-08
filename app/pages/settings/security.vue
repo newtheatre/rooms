@@ -149,6 +149,17 @@ async function deleteAccount() {
       class="flex flex-col gap-4 max-w-xs"
       @submit="onPasswordSubmit"
     >
+      <!-- Hidden username field for password managers -->
+      <input
+        type="text"
+        name="username"
+        :value="user?.email"
+        autocomplete="username"
+        class="sr-only"
+        tabindex="-1"
+        aria-hidden="true"
+      >
+
       <UFormField
         name="current"
         label="Current password"

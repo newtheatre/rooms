@@ -22,7 +22,8 @@
  * 2. Validate request body (admin vs user schema)
  * 3. Create booking in database
  * 4. Send confirmation email to user
- * 5. Return created booking
+ * 5. Notify all admins if booking is PENDING (new request needing review)
+ * 6. Return created booking
  *
  * Response:
  * - 201: Booking object
@@ -37,8 +38,6 @@
  * @authenticated
  */
 import prisma from '~~/server/database'
-import { createBookingSchema, adminCreateBookingSchema } from '~~/server/utils/validation'
-import { notifyBookingUpdate } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -150,6 +149,47 @@ export default defineEventHandler(async (event) => {
     notifyBookingUpdate(booking.user, booking, message).catch((err) => {
       console.error('Failed to send booking creation notification:', err)
     })
+  }
+
+  // Notify all admins if this is a new PENDING booking request
+  if (status === 'PENDING') {
+    // Fetch all admins who have opted in to new booking notifications
+    const allAdmins = await db.user.findMany({
+      where: { role: 'ADMIN' }
+    })
+
+    // Filter admins who want to receive new booking notifications
+    const adminsToNotify = allAdmins.filter((admin) => {
+      const preferences = getNotificationPreferences(admin)
+      return preferences.includes('ADMIN_NEW_BOOKINGS')
+    })
+
+    if (adminsToNotify.length > 0) {
+      const df = new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      })
+
+      const adminMessage = `
+        New booking request submitted by ${booking.user?.name || 'Unknown User'}
+        
+        Event: ${booking.eventTitle}
+        Date: ${df.format(booking.startTime)} - ${df.format(booking.endTime)}
+        ${booking.numberOfAttendees ? `Attendees: ${booking.numberOfAttendees}` : ''}
+        ${booking.notes ? `Notes: ${booking.notes}` : ''}
+        
+        Please review and assign a room or venue.
+      `
+
+      // Send batch email to all subscribed admins
+      sendBatchEmail(
+        adminsToNotify,
+        'New Booking Request - Room Booking System',
+        adminMessage
+      ).catch((err) => {
+        console.error('Failed to send batch admin notification:', err)
+      })
+    }
   }
 
   // Set 201 status code

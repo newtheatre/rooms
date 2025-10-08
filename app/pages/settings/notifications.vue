@@ -22,6 +22,7 @@
  */
 <script setup lang="ts">
 const toast = useToast()
+const { user } = useUserSession()
 
 // Type for preferences response
 interface PreferencesResponse {
@@ -42,11 +43,15 @@ if (error.value) {
   })
 }
 
+// Check if user is admin
+const isAdmin = computed(() => user.value?.role === 'ADMIN')
+
 // Notification state - populated from API response
 const state = reactive<{ [key: string]: boolean }>({
   email: preferences.value?.notificationChannels.includes('EMAIL') ?? true,
   push: preferences.value?.notificationChannels.includes('PUSH') ?? false,
-  booking_updates: preferences.value?.notificationPreferences.includes('BOOKING_UPDATES') ?? true
+  booking_updates: preferences.value?.notificationPreferences.includes('BOOKING_UPDATES') ?? true,
+  admin_new_bookings: preferences.value?.notificationPreferences.includes('ADMIN_NEW_BOOKINGS') ?? false
 })
 
 type NotificationField = {
@@ -57,45 +62,58 @@ type NotificationField = {
   value?: boolean
 }
 
-const sections: Array<{
-  title: string
-  description: string
-  info?: boolean
-  warning?: boolean
-  fields: NotificationField[]
-}> = [{
-  title: 'Notification channels',
-  description: 'Where can we notify you?',
-  fields: [{
-    name: 'email',
-    label: 'Email',
-    description: 'Receive booking updates via email.'
-  }, {
-    name: 'push',
-    label: 'Push notifications',
-    description: 'Receive desktop/mobile push notifications. (Coming soon - not yet implemented)',
-    disabled: true
+const sections = computed(() => {
+  const preferenceFields: NotificationField[] = [{
+    name: 'booking_updates',
+    label: 'Booking status changes',
+    description: 'Get notified when your bookings are confirmed, rejected, or updated by an admin.'
   }]
-}, {
-  title: 'Critical account updates',
-  description: 'Important notifications that are always sent via email.',
-  info: true,
-  fields: [{
+
+  // Add admin preferences if user is admin
+  if (isAdmin.value) {
+    preferenceFields.push({
+      name: 'admin_new_bookings',
+      label: 'New booking requests (Admin only)',
+      description: 'Get notified when users submit new booking requests that need review and assignment.'
+    })
+  }
+
+  // Add critical notifications (always enabled)
+  preferenceFields.push({
     name: 'critical',
     label: 'Security & account notifications',
     description: 'Password resets, security alerts, and critical account changes are always sent via email and cannot be disabled.',
     disabled: true,
     value: true
+  })
+
+  const baseSections: Array<{
+    title: string
+    description: string
+    info?: boolean
+    warning?: boolean
+    fields: NotificationField[]
+  }> = [{
+    title: 'Notification channels',
+    description: 'Where can we notify you?',
+    fields: [{
+      name: 'email',
+      label: 'Email',
+      description: 'Receive booking updates via email.'
+    }, {
+      name: 'push',
+      label: 'Push notifications',
+      description: 'Receive desktop/mobile push notifications. (Coming soon...)',
+      disabled: true
+    }]
+  }, {
+    title: 'Notification preferences',
+    description: 'Choose which notifications you want to receive.',
+    fields: preferenceFields
   }]
-}, {
-  title: 'Booking updates',
-  description: 'Receive updates about your booking requests.',
-  fields: [{
-    name: 'booking_updates',
-    label: 'Booking status changes',
-    description: 'Get notified when your bookings are confirmed, rejected, or updated by an admin.'
-  }]
-}]
+
+  return baseSections
+})
 
 async function onChange(_fieldName: string) {
   try {
@@ -105,6 +123,7 @@ async function onChange(_fieldName: string) {
 
     const preferences: string[] = []
     if (state.booking_updates) preferences.push('BOOKING_UPDATES')
+    if (state.admin_new_bookings) preferences.push('ADMIN_NEW_BOOKINGS')
 
     await $fetch('/api/account/preferences', {
       method: 'PUT',

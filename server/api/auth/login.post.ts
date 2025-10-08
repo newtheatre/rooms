@@ -80,7 +80,11 @@ defineRouteMeta({
 })
 
 export default defineEventHandler(async (event) => {
+  console.log('Login endpoint called')
+
   const db = prisma
+
+  console.log('Prisma client initialized')
 
   // Parse and validate request body with runtime type safety
   const { email, password } = await readValidatedBody(event, loginSchema.parse)

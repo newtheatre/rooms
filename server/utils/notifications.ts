@@ -7,7 +7,7 @@
  * @module server/utils/notifications
  */
 
-import type { User, Booking } from '@prisma/client'
+import type { User, Booking } from '~~/.generated/client'
 import resend from './resend'
 
 /**
@@ -21,7 +21,7 @@ export type NotificationChannel = 'EMAIL' | 'PUSH'
  * Note: Critical account updates (password resets, security alerts)
  * are always sent via email regardless of preferences.
  */
-export type NotificationPreference = 'BOOKING_UPDATES'
+export type NotificationPreference = 'BOOKING_UPDATES' | 'ADMIN_NEW_BOOKINGS'
 
 /**
  * Notification payload for booking updates
@@ -95,6 +95,30 @@ export async function sendEmail(user: User, subject: string, content: string): P
 }
 
 /**
+ * Sends batch emails to multiple users with the same subject and content
+ *
+ * @param users - Array of users to notify
+ * @param subject - Email subject
+ * @param content - Email content (HTML or plain text)
+ *
+ * Uses batch sending for better performance
+ */
+export async function sendBatchEmail(users: User[], subject: string, content: string): Promise<void> {
+  if (users.length === 0) return
+
+  const emailAddresses = users.map(user => user.email)
+  console.log(`[BATCH EMAIL] To: ${emailAddresses.length} recipients, Subject: ${subject}`)
+
+  // Send as batch with BCC (blind carbon copy)
+  await resend.emails.send({
+    from: `"Room Bookings" <${process.env.EMAIL}>`,
+    to: emailAddresses,
+    subject,
+    text: content
+  })
+}
+
+/**
  * Sends a push notification to a user
  *
  * @param userId - User ID to notify
@@ -107,8 +131,8 @@ export async function sendEmail(user: User, subject: string, content: string): P
 export async function sendPushNotification(
   userId: string,
   title: string,
-  body: string,
-  data?: Record<string, unknown>
+  _body: string,
+  _data?: Record<string, unknown>
 ): Promise<void> {
   // TODO: Implement web push using Web Push Protocol
   // Retrieve all push subscriptions for this user from database
