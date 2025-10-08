@@ -182,7 +182,7 @@ export default defineEventHandler(async (event) => {
       `
 
       // Send batch email to all subscribed admins
-      sendBatchEmail(
+      await sendBatchEmail(
         adminsToNotify,
         'New Booking Request - Room Booking System',
         adminMessage

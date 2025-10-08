@@ -145,7 +145,7 @@ export default defineEventHandler(async (event) => {
       Time: ${new Date().toLocaleString()}
     `
 
-    sendCriticalNotification(
+    await sendCriticalNotification(
       fullUser,
       'Password Changed - Room Booking System',
       notificationContent

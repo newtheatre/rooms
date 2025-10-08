@@ -36,9 +36,7 @@
  * @authenticated
  * @admin-only
  */
-import prisma from '../../database'
-import { updateUserSchema } from '../../utils/validation'
-import { sendCriticalNotification } from '~~/server/utils/notifications'
+import prisma from '~~/server/database'
 
 defineRouteMeta({
   openAPI: {
@@ -195,8 +193,8 @@ export default defineEventHandler(async (event) => {
         Time: ${new Date().toLocaleString()}
       `
 
-      // Send critical notification (async, don't await)
-      sendCriticalNotification(
+      // Send critical notification
+      await sendCriticalNotification(
         fullUser,
         'Account Updated - Room Booking System',
         notificationContent

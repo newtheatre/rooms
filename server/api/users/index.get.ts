@@ -29,8 +29,8 @@
  * @authenticated
  * @admin-only
  */
-import prisma from '../../database'
-import type { Prisma } from '../../../.generated/client'
+import prisma from '~~/server/database'
+import type { Prisma } from '@prisma/client'
 
 defineRouteMeta({
   openAPI: {

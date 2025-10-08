@@ -143,7 +143,7 @@ export default defineEventHandler(async (event) => {
     `
 
     // Send welcome email (async, don't await)
-    sendEmail(
+    await sendEmail(
       fullUser,
       'Welcome to NNT\'s Room Booking System',
       welcomeContent

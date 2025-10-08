@@ -107,8 +107,8 @@ export default defineEventHandler(async (event) => {
       ? `Your booking "${booking.eventTitle}" has been cancelled by an administrator.`
       : `Your booking "${booking.eventTitle}" has been cancelled.`
 
-    // Send notification (async, don't await)
-    notifyBookingUpdate(booking.user, booking, message).catch((err) => {
+    // Send notification
+    await notifyBookingUpdate(booking.user, booking, message).catch((err) => {
       console.error('Failed to send booking cancellation notification:', err)
     })
   }

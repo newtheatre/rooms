@@ -33,7 +33,6 @@
  * @admin-only
  */
 import prisma from '~~/server/database'
-import { sendCriticalNotification } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {

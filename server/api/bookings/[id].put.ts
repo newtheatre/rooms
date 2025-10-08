@@ -190,8 +190,8 @@ export default defineEventHandler(async (event) => {
       })
 
       if (fullUser) {
-        // Send notification (async, don't await)
-        notifyBookingUpdate(fullUser, updatedBooking, message).catch((err) => {
+        // Send notification
+        await notifyBookingUpdate(fullUser, updatedBooking, message).catch((err) => {
           console.error('Failed to send booking notification:', err)
         })
       }
