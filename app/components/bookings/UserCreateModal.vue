@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import type { CalendarDate } from '@internationalized/date'
 import { DateFormatter } from '@internationalized/date'
+import { debounce } from 'perfect-debounce'
 
 const emit = defineEmits<{
   (e: 'refresh'): void
@@ -13,7 +14,17 @@ const toast = useToast()
 const open = ref(false)
 const isSubmitting = ref(false)
 
-// Load available rooms
+// Room availability composable
+const {
+  availableRooms,
+  unavailableRooms,
+  isLoading: availabilityLoading,
+  fetchAvailability,
+  totalAvailable,
+  totalUnavailable
+} = useRoomAvailability({ autoFetch: false, includeUnavailable: true })
+
+// Load available rooms (fallback if availability check hasn't run)
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
   query: { includeInactive: 'false' }
 })
@@ -26,15 +37,28 @@ watch(open, (isOpen) => {
   }
 })
 
-const roomItems = computed(() =>
-  rooms.value?.map(r => ({
-    id: `room-${r.id}`, // Prefix with 'room-' to avoid ID collision
-    realId: r.id,
-    label: r.name,
-    description: `Capacity: ${r.capacity}${r.description ? ' • ' + r.description : ''}`,
-    venueType: 'room' as const
-  })) ?? []
-)
+// Combine availability data with room data
+const roomItems = computed(() => {
+  // Use availability data if available, otherwise fall back to rooms data
+  const roomsWithAvailability = availableRooms.value.length > 0 || unavailableRooms.value.length > 0
+    ? [...availableRooms.value, ...unavailableRooms.value]
+    : rooms.value || []
+
+  return roomsWithAvailability.map((r) => {
+    const conflicts = 'conflicts' in r ? r.conflicts : []
+    const isAvailable = !conflicts || conflicts.length === 0
+
+    return {
+      id: `room-${r.id}`,
+      realId: r.id,
+      label: r.name,
+      description: `Capacity: ${r.capacity || 'N/A'}${r.description ? ' • ' + r.description : ''}`,
+      venueType: 'room' as const,
+      isAvailable,
+      conflicts
+    }
+  })
+})
 
 const venueItems = computed(() =>
   venues.value?.map(v => ({
@@ -62,7 +86,11 @@ const formSchema = z.object({
   startTime: z.string().min(1, 'Start time is required').regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format'),
   endTime: z.string().min(1, 'End time is required').regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format'),
   roomId: z.number().int().positive().optional().nullable(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  isRecurring: z.boolean().optional(),
+  recurringFrequency: z.enum(['DAILY', 'WEEKLY', 'CUSTOM']).optional(),
+  recurringDaysOfWeek: z.array(z.enum(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'])).optional(),
+  recurringMaxOccurrences: z.number().int().min(1).max(52).optional()
 }).refine(
   (data) => {
     if (!data.startTime || !data.endTime) return true
@@ -73,6 +101,18 @@ const formSchema = z.object({
   {
     message: 'End time must be after start time',
     path: ['endTime']
+  }
+).refine(
+  (data) => {
+    if (!data.isRecurring) return true
+    if (data.recurringFrequency === 'WEEKLY' && (!data.recurringDaysOfWeek || data.recurringDaysOfWeek.length === 0)) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'Weekly recurrence requires at least one day of week',
+    path: ['recurringDaysOfWeek']
   }
 )
 
@@ -86,13 +126,37 @@ const state = reactive({
   startTime: undefined as string | undefined,
   endTime: undefined as string | undefined,
   preferredVenueId: undefined as string | undefined, // Now a string like 'room-1' or 'venue-2'
-  notes: undefined as string | undefined
+  notes: undefined as string | undefined,
+  isRecurring: false,
+  recurringFrequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'CUSTOM',
+  recurringDaysOfWeek: [] as Array<'SUN' | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT'>,
+  recurringMaxOccurrences: 10
 })
 
 const selectedVenue = computed(() => {
   if (!state.preferredVenueId) return undefined
   return allVenueOptions.value.find(v => v.id === state.preferredVenueId)
 })
+
+const selectedRoom = computed(() => {
+  if (!state.preferredVenueId?.startsWith('room-')) return undefined
+  return roomItems.value.find(r => r.id === state.preferredVenueId)
+})
+
+// Watch for date/time changes and fetch availability
+const debouncedFetchAvailability = debounce(async () => {
+  if (state.eventDate && state.startTime && state.endTime) {
+    try {
+      const startTime = combineDateAndTime(state.eventDate as CalendarDate, state.startTime)
+      const endTime = combineDateAndTime(state.eventDate as CalendarDate, state.endTime)
+      await fetchAvailability(startTime, endTime)
+    } catch (err) {
+      console.error('Failed to fetch availability:', err)
+    }
+  }
+}, 500)
+
+watch([() => state.eventDate, () => state.startTime, () => state.endTime], debouncedFetchAvailability)
 
 async function onSubmit(event: FormSubmitEvent<FormSchema>) {
   isSubmitting.value = true
@@ -106,7 +170,18 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
       notes = notes.trim() + venueNote
     }
 
-    const payload = {
+    const payload: {
+      eventTitle: string
+      numberOfAttendees?: number
+      startTime: string
+      endTime: string
+      notes?: string
+      recurringPattern?: {
+        frequency: 'DAILY' | 'WEEKLY' | 'CUSTOM'
+        daysOfWeek?: string[]
+        maxOccurrences: number
+      }
+    } = {
       eventTitle: event.data.eventTitle,
       numberOfAttendees: event.data.numberOfAttendees || undefined,
       startTime: combineDateAndTime(eventDate, event.data.startTime),
@@ -114,14 +189,24 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
       notes: notes.trim() || undefined
     }
 
+    // Add recurring pattern if enabled
+    if (state.isRecurring && state.recurringMaxOccurrences > 1) {
+      payload.recurringPattern = {
+        frequency: state.recurringFrequency,
+        daysOfWeek: state.recurringFrequency === 'WEEKLY' ? state.recurringDaysOfWeek : undefined,
+        maxOccurrences: state.recurringMaxOccurrences
+      }
+    }
+
     await $fetch('/api/bookings', {
       method: 'POST',
       body: payload
     })
 
+    const occurrenceText = state.isRecurring ? ` (${state.recurringMaxOccurrences} occurrences)` : ''
     toast.add({
       title: 'Booking request submitted',
-      description: 'Your booking request has been submitted and is pending review.',
+      description: `Your booking request has been submitted and is pending review${occurrenceText}.`,
       icon: 'i-lucide-check-circle',
       color: 'success'
     })
@@ -134,7 +219,11 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
       startTime: undefined,
       endTime: undefined,
       preferredVenueId: undefined,
-      notes: undefined
+      notes: undefined,
+      isRecurring: false,
+      recurringFrequency: 'WEEKLY',
+      recurringDaysOfWeek: [],
+      recurringMaxOccurrences: 10
     })
 
     open.value = false
@@ -271,6 +360,17 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
                 />
               </UFormField>
             </div>
+
+            <!-- Recurring Event Section -->
+            <BookingsRecurringEventFields
+              v-model:is-recurring="state.isRecurring"
+              v-model:frequency="state.recurringFrequency"
+              v-model:days-of-week="state.recurringDaysOfWeek"
+              v-model:max-occurrences="state.recurringMaxOccurrences"
+              :event-date="state.eventDate"
+              context="user"
+              day-name-format="short"
+            />
           </div>
         </div>
 
@@ -288,19 +388,33 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
               v-model="state.preferredVenueId"
               :items="allVenueOptions"
               value-key="id"
-              :loading="roomsStatus === 'pending' || _venuesStatus === 'pending'"
+              :loading="roomsStatus === 'pending' || _venuesStatus === 'pending' || availabilityLoading"
               placeholder="No preference"
               :search-input="{ placeholder: 'Search rooms and venues...' }"
               class="w-full"
             >
               <template #item-label="{ item }">
-                <div class="flex flex-col">
-                  <span class="font-medium">{{ (item as any).label }}</span>
-                  <span class="text-xs text-gray-500">{{ (item as any).description }}</span>
+                <div class="flex items-center justify-between w-full gap-2">
+                  <div class="flex flex-col flex-1 min-w-0">
+                    <span class="font-medium truncate">{{ (item as any).label }}</span>
+                    <span class="text-xs text-gray-500 truncate">{{ (item as any).description }}</span>
+                  </div>
+                  <RoomAvailabilityBadge
+                    v-if="(item as any).venueType === 'room' && (item as any).conflicts"
+                    :conflicts="(item as any).conflicts"
+                    :is-available="(item as any).isAvailable"
+                  />
                 </div>
               </template>
             </USelectMenu>
           </UFormField>
+
+          <template v-if="totalAvailable + totalUnavailable > 0">
+            <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              <span class="font-medium text-success-600 dark:text-success-400">{{ totalAvailable }}</span> available,
+              <span class="font-medium text-warning-600 dark:text-warning-400">{{ totalUnavailable }}</span> may have conflicts
+            </div>
+          </template>
 
           <UAlert
             v-if="!selectedVenue"
@@ -312,12 +426,31 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
             class="mt-3"
           />
           <UAlert
-            v-else
-            icon="i-lucide-info"
-            color="info"
+            v-else-if="selectedRoom && selectedRoom.conflicts && selectedRoom.conflicts.length > 0"
+            icon="i-lucide-alert-triangle"
+            color="warning"
             variant="subtle"
             :title="`Preference: ${selectedVenue.label}`"
-            description="This will be added to your booking notes for the administrator to consider."
+            class="mt-3"
+          >
+            <template #description>
+              <div class="space-y-1">
+                <p>
+                  This room may not be available - it has {{ selectedRoom.conflicts.length }} potential conflict(s).
+                </p>
+                <p class="text-xs">
+                  An administrator will review your request and may assign an alternative room.
+                </p>
+              </div>
+            </template>
+          </UAlert>
+          <UAlert
+            v-else-if="selectedVenue"
+            icon="i-lucide-check-circle"
+            color="success"
+            variant="subtle"
+            :title="`Preference: ${selectedVenue.label}`"
+            description="This venue appears to be available for your selected time."
             class="mt-3"
           />
         </div>

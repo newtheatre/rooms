@@ -28,7 +28,7 @@
  */
 
 import prisma from '~~/server/database'
-import { notifyBookingUpdate } from '~~/server/utils/notifications'
+import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -103,9 +103,10 @@ export default defineEventHandler(async (event) => {
 
   // Send notification before deletion if user exists
   if (booking.user) {
+    const bookingDateTime = formatBookingDateTime(booking)
     const message = user.role === 'ADMIN'
-      ? `Your booking "${booking.eventTitle}" has been cancelled by an administrator.`
-      : `Your booking "${booking.eventTitle}" has been cancelled.`
+      ? `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled by an administrator.`
+      : `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled.`
 
     // Send notification
     await notifyBookingUpdate(booking.user, booking, message).catch((err) => {

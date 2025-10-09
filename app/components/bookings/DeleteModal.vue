@@ -25,12 +25,10 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  refresh: []
+  delete: [booking: Booking]
 }>()
 
-const toast = useToast()
 const open = ref(false)
-const isDeleting = ref(false)
 
 // Watch for booking changes to open modal
 watch(() => props.booking, (newBooking) => {
@@ -64,30 +62,8 @@ const getStatusLabel = (status: Booking['status']) => {
 async function onSubmit() {
   if (!props.booking) return
 
-  isDeleting.value = true
-  try {
-    await $fetch(`/api/bookings/${props.booking.id}`, { method: 'DELETE' })
-
-    toast.add({
-      title: 'Booking deleted',
-      description: `${props.booking.eventTitle} has been deleted`,
-      icon: 'i-lucide-check',
-      color: 'success'
-    })
-
-    open.value = false
-    emit('refresh')
-  } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to delete booking',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
-  } finally {
-    isDeleting.value = false
-  }
+  open.value = false
+  emit('delete', props.booking)
 }
 </script>
 
@@ -143,7 +119,6 @@ async function onSubmit() {
             label="Delete Booking"
             color="error"
             variant="solid"
-            :loading="isDeleting"
             @click="onSubmit"
           />
         </div>

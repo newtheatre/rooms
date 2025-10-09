@@ -120,6 +120,39 @@ export const bookingStatusSchema = z.enum([
 ])
 
 /**
+ * Recurrence frequency schema
+ */
+export const recurrenceFrequencySchema = z.enum(['DAILY', 'WEEKLY', 'CUSTOM'])
+
+/**
+ * Days of week schema
+ */
+export const dayOfWeekSchema = z.enum(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'])
+
+/**
+ * Recurring pattern schema
+ */
+export const recurringPatternSchema = z.object({
+  frequency: recurrenceFrequencySchema,
+  interval: z.number().int().min(1).max(365).optional().default(1),
+  daysOfWeek: z.array(dayOfWeekSchema).min(1).optional(),
+  maxOccurrences: z.number().int().min(1).max(52),
+  endDate: z.string().datetime().optional()
+}).refine(
+  (data) => {
+    // Weekly recurrence requires daysOfWeek
+    if (data.frequency === 'WEEKLY' && (!data.daysOfWeek || data.daysOfWeek.length === 0)) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'Weekly recurrence requires at least one day of week',
+    path: ['daysOfWeek']
+  }
+)
+
+/**
  * Create booking schema
  */
 export const createBookingSchema = z.object({
@@ -127,7 +160,8 @@ export const createBookingSchema = z.object({
   numberOfAttendees: z.number().int().positive().optional(),
   startTime: z.string().datetime('Invalid start time'),
   endTime: z.string().datetime('Invalid end time'),
-  notes: z.string().max(1000).optional()
+  notes: z.string().max(1000).optional(),
+  recurringPattern: recurringPatternSchema.optional()
 }).refine(
   (data) => {
     const start = new Date(data.startTime)
@@ -152,7 +186,8 @@ export const adminCreateBookingSchema = z.object({
   roomId: z.number().int().positive().optional(),
   externalVenueId: z.number().int().positive().optional(),
   status: bookingStatusSchema.optional(),
-  notes: z.string().max(1000).optional()
+  notes: z.string().max(1000).optional(),
+  recurringPattern: recurringPatternSchema.optional()
 }).refine(
   (data) => {
     const start = new Date(data.startTime)

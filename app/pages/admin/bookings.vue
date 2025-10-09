@@ -75,6 +75,8 @@ interface Booking {
   notes: string | null
   rejectionReason: string | null
   createdAt: string
+  parentBookingId: number | null
+  occurrenceNumber: number | null
   user: User | null
   room: Room | null
   externalVenue: ExternalVenue | null
@@ -112,6 +114,20 @@ const editModalOpen = ref(false)
 const bookingToReject = ref<Booking | null>(null)
 const bookingToDelete = ref<Booking | null>(null)
 
+// Bulk assignment states
+const bulkAssignRoomId = ref<number | null>(null)
+const bulkAssignVenueId = ref<number | null>(null)
+
+// Recurring action modal state
+const recurringActionModalOpen = ref(false)
+const recurringActionBooking = ref<Booking | null>(null)
+const recurringActionType = ref<'assignRoom' | 'assignVenue' | 'initiateExternal' | 'reject' | 'delete' | null>(null)
+const recurringActionRoomId = ref<number | null>(null)
+const recurringActionVenueId = ref<number | null>(null)
+const recurringActionRoomName = ref<string>('')
+const recurringActionVenueName = ref<string>('')
+const recurringActionRejectionReason = ref<string>('')
+
 // Check if a booking is historical (in the past)
 function isHistorical(booking: Booking): boolean {
   return new Date(booking.endTime) < new Date()
@@ -135,6 +151,37 @@ const filteredBookings = computed(() => {
 const selectedBookings = computed<Booking[]>(() => {
   if (!table.value?.tableApi || !bookings.value) return []
   return table.value.tableApi.getFilteredSelectedRowModel().rows.map((row: { original: Booking }) => row.original)
+})
+
+// Get related bookings in a recurring series
+function getRelatedBookings(booking: Booking): Booking[] {
+  if (!bookings.value) return []
+
+  // If this is a parent booking, get all children
+  if (booking.parentBookingId === null && booking.occurrenceNumber === 1) {
+    return bookings.value.filter(b => b.parentBookingId === booking.id)
+  }
+
+  // If this is a child booking, get parent and all siblings
+  if (booking.parentBookingId !== null) {
+    return bookings.value.filter(b =>
+      (b.id !== booking.id) // Exclude current booking
+      && (b.id === booking.parentBookingId || b.parentBookingId === booking.parentBookingId)
+    )
+  }
+
+  return []
+}
+
+// Check if booking is part of a recurring series
+function isRecurringBooking(booking: Booking): boolean {
+  return booking.parentBookingId !== null || (booking.parentBookingId === null && booking.occurrenceNumber === 1)
+}
+
+// Get related bookings for recurring action modal
+const relatedBookingsForModal = computed(() => {
+  if (!recurringActionBooking.value) return []
+  return getRelatedBookings(recurringActionBooking.value)
 })
 
 // Status badge configuration
@@ -161,18 +208,61 @@ const getStatusLabel = (status: Booking['status']) => {
 }
 
 // Assign internal room
-async function assignRoom(booking: Booking, roomId: number) {
+async function assignRoom(booking: Booking, roomId: number, roomName?: string) {
+  // Check if this is a recurring booking
+  if (isRecurringBooking(booking)) {
+    const related = getRelatedBookings(booking)
+    if (related.length > 0) {
+      // Show modal to ask if user wants to apply to series
+      recurringActionBooking.value = booking
+      recurringActionType.value = 'assignRoom'
+      recurringActionRoomId.value = roomId
+      recurringActionRoomName.value = roomName || rooms.value?.find(r => r.id === roomId)?.name || `Room #${roomId}`
+      recurringActionModalOpen.value = true
+      return
+    }
+  }
+
+  // Not recurring or no related bookings, proceed normally
+  await assignRoomDirect(booking, roomId)
+}
+
+// Direct room assignment (used internally and by modal)
+async function assignRoomDirect(booking: Booking, roomId: number, relatedBookings?: Booking[]) {
   try {
-    await $fetch(`/api/bookings/${booking.id}`, {
-      method: 'PUT',
-      body: {
-        roomId,
-        status: 'CONFIRMED'
-      }
-    })
+    const bookingsToUpdate = relatedBookings ? [booking, ...relatedBookings] : [booking]
+
+    // Use bulk endpoint if updating multiple bookings
+    if (bookingsToUpdate.length > 1) {
+      await $fetch('/api/bookings/bulk', {
+        method: 'PUT',
+        body: {
+          updates: bookingsToUpdate.map(b => ({
+            id: b.id,
+            data: {
+              roomId,
+              status: 'CONFIRMED'
+            }
+          }))
+        }
+      })
+    } else {
+      // Single booking - use regular endpoint
+      await $fetch(`/api/bookings/${booking.id}`, {
+        method: 'PUT',
+        body: {
+          roomId,
+          status: 'CONFIRMED'
+        }
+      })
+    }
+
+    const roomName = rooms.value?.find(r => r.id === roomId)?.name || 'room'
     toast.add({
       title: 'Room assigned',
-      description: `Booking confirmed for ${booking.eventTitle}`,
+      description: bookingsToUpdate.length > 1
+        ? `${bookingsToUpdate.length} bookings assigned to ${roomName}`
+        : `Booking confirmed for ${booking.eventTitle}`,
       icon: 'i-lucide-check',
       color: 'success'
     })
@@ -190,16 +280,55 @@ async function assignRoom(booking: Booking, roomId: number) {
 
 // Initiate external booking (no venue assignment yet)
 async function initiateExternal(booking: Booking) {
+  // Check if this is a recurring booking
+  if (isRecurringBooking(booking)) {
+    const related = getRelatedBookings(booking)
+    if (related.length > 0) {
+      // Show modal to ask if user wants to apply to series
+      recurringActionBooking.value = booking
+      recurringActionType.value = 'initiateExternal'
+      recurringActionModalOpen.value = true
+      return
+    }
+  }
+
+  // Not recurring or no related bookings, proceed normally
+  await initiateExternalDirect(booking)
+}
+
+// Direct initiate external (used internally and by modal)
+async function initiateExternalDirect(booking: Booking, relatedBookings?: Booking[]) {
   try {
-    await $fetch(`/api/bookings/${booking.id}`, {
-      method: 'PUT',
-      body: {
-        status: 'AWAITING_EXTERNAL'
-      }
-    })
+    const bookingsToUpdate = relatedBookings ? [booking, ...relatedBookings] : [booking]
+
+    // Use bulk endpoint if updating multiple bookings
+    if (bookingsToUpdate.length > 1) {
+      await $fetch('/api/bookings/bulk', {
+        method: 'PUT',
+        body: {
+          updates: bookingsToUpdate.map(b => ({
+            id: b.id,
+            data: {
+              status: 'AWAITING_EXTERNAL'
+            }
+          }))
+        }
+      })
+    } else {
+      // Single booking - use regular endpoint
+      await $fetch(`/api/bookings/${booking.id}`, {
+        method: 'PUT',
+        body: {
+          status: 'AWAITING_EXTERNAL'
+        }
+      })
+    }
+
     toast.add({
       title: 'External booking initiated',
-      description: `${booking.eventTitle} is now awaiting external confirmation`,
+      description: bookingsToUpdate.length > 1
+        ? `${bookingsToUpdate.length} bookings set to awaiting external`
+        : `${booking.eventTitle} is now awaiting external confirmation`,
       icon: 'i-lucide-clock',
       color: 'info'
     })
@@ -216,18 +345,63 @@ async function initiateExternal(booking: Booking) {
 }
 
 // Confirm and assign external venue (combines assign + confirm in one step)
-async function confirmAndAssignVenue(booking: Booking, venueId: number) {
+async function confirmAndAssignVenue(booking: Booking, venueId: number, venueName?: string) {
+  // Check if this is a recurring booking
+  if (isRecurringBooking(booking)) {
+    const related = getRelatedBookings(booking)
+    if (related.length > 0) {
+      // Show modal to ask if user wants to apply to series
+      recurringActionBooking.value = booking
+      recurringActionType.value = 'assignVenue'
+      recurringActionVenueId.value = venueId
+      const venue = venues.value?.find(v => v.id === venueId)
+      recurringActionVenueName.value = venueName || (venue ? `${venue.building} - ${venue.roomName}` : `Venue #${venueId}`)
+      recurringActionModalOpen.value = true
+      return
+    }
+  }
+
+  // Not recurring or no related bookings, proceed normally
+  await confirmAndAssignVenueDirect(booking, venueId)
+}
+
+// Direct venue assignment (used internally and by modal)
+async function confirmAndAssignVenueDirect(booking: Booking, venueId: number, relatedBookings?: Booking[]) {
   try {
-    await $fetch(`/api/bookings/${booking.id}`, {
-      method: 'PUT',
-      body: {
-        externalVenueId: venueId,
-        status: 'CONFIRMED'
-      }
-    })
+    const bookingsToUpdate = relatedBookings ? [booking, ...relatedBookings] : [booking]
+
+    // Use bulk endpoint if updating multiple bookings
+    if (bookingsToUpdate.length > 1) {
+      await $fetch('/api/bookings/bulk', {
+        method: 'PUT',
+        body: {
+          updates: bookingsToUpdate.map(b => ({
+            id: b.id,
+            data: {
+              externalVenueId: venueId,
+              status: 'CONFIRMED'
+            }
+          }))
+        }
+      })
+    } else {
+      // Single booking - use regular endpoint
+      await $fetch(`/api/bookings/${booking.id}`, {
+        method: 'PUT',
+        body: {
+          externalVenueId: venueId,
+          status: 'CONFIRMED'
+        }
+      })
+    }
+
+    const venue = venues.value?.find(v => v.id === venueId)
+    const venueName = venue ? `${venue.building} - ${venue.roomName}` : 'venue'
     toast.add({
-      title: 'Venue assigned and confirmed',
-      description: `${booking.eventTitle} has been confirmed`,
+      title: 'Venue assigned',
+      description: bookingsToUpdate.length > 1
+        ? `${bookingsToUpdate.length} bookings confirmed at ${venueName}`
+        : `Booking confirmed for ${booking.eventTitle}`,
       icon: 'i-lucide-check',
       color: 'success'
     })
@@ -243,13 +417,200 @@ async function confirmAndAssignVenue(booking: Booking, venueId: number) {
   }
 }
 
+// Direct booking rejection (used internally and by modal)
+async function rejectDirect(booking: Booking, rejectionReason: string, relatedBookings?: Booking[]) {
+  try {
+    const bookingsToUpdate = relatedBookings ? [booking, ...relatedBookings] : [booking]
+
+    // Use bulk endpoint if updating multiple bookings
+    if (bookingsToUpdate.length > 1) {
+      await $fetch('/api/bookings/bulk', {
+        method: 'PUT',
+        body: {
+          updates: bookingsToUpdate.map(b => ({
+            id: b.id,
+            data: {
+              status: 'REJECTED',
+              rejectionReason
+            }
+          }))
+        }
+      })
+    } else {
+      // Single booking - use regular endpoint
+      await $fetch(`/api/bookings/${booking.id}`, {
+        method: 'PUT',
+        body: {
+          status: 'REJECTED',
+          rejectionReason
+        }
+      })
+    }
+
+    toast.add({
+      title: 'Booking rejected',
+      description: bookingsToUpdate.length > 1
+        ? `${bookingsToUpdate.length} bookings rejected`
+        : `${booking.eventTitle} has been rejected`,
+      icon: 'i-lucide-x-circle',
+      color: 'error'
+    })
+    await refreshBookings()
+  } catch (error: unknown) {
+    const err = error as { data?: { message?: string } }
+    toast.add({
+      title: 'Error',
+      description: err.data?.message || 'Failed to reject booking',
+      icon: 'i-lucide-x-circle',
+      color: 'error'
+    })
+  }
+}
+
+// Direct booking deletion (used internally and by modal)
+async function deleteDirect(booking: Booking, relatedBookings?: Booking[]) {
+  try {
+    const bookingsToDelete = relatedBookings ? [booking, ...relatedBookings] : [booking]
+
+    // Use bulk endpoint if deleting multiple bookings
+    if (bookingsToDelete.length > 1) {
+      await $fetch('/api/bookings/bulk', {
+        method: 'DELETE',
+        body: {
+          bookingIds: bookingsToDelete.map(b => b.id)
+        }
+      })
+    } else {
+      // Single booking - use regular endpoint
+      await $fetch(`/api/bookings/${booking.id}`, {
+        method: 'DELETE'
+      })
+    }
+
+    toast.add({
+      title: 'Booking deleted',
+      description: bookingsToDelete.length > 1
+        ? `${bookingsToDelete.length} bookings deleted`
+        : `${booking.eventTitle} has been deleted`,
+      icon: 'i-lucide-check',
+      color: 'success'
+    })
+    await refreshBookings()
+  } catch (error: unknown) {
+    const err = error as { data?: { message?: string } }
+    toast.add({
+      title: 'Error',
+      description: err.data?.message || 'Failed to delete booking',
+      icon: 'i-lucide-x-circle',
+      color: 'error'
+    })
+  }
+}
+
+// Handle reject modal confirmation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleRejectConfirm(modalBooking: any, rejectionReason: string) {
+  bookingToReject.value = null
+
+  // Find the full booking object from our bookings array
+  const fullBooking = bookings.value?.find(b => b.id === modalBooking.id)
+  if (!fullBooking) return
+
+  // Check if this is a recurring booking
+  if (isRecurringBooking(fullBooking)) {
+    const related = getRelatedBookings(fullBooking)
+    if (related.length > 0) {
+      // Show modal to ask if user wants to apply to series
+      recurringActionBooking.value = fullBooking
+      recurringActionType.value = 'reject'
+      recurringActionRejectionReason.value = rejectionReason
+      recurringActionModalOpen.value = true
+      return
+    }
+  }
+
+  // Not recurring or no related bookings, proceed with single reject
+  await rejectDirect(fullBooking, rejectionReason)
+}
+
+// Handle delete modal confirmation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleDeleteConfirm(modalBooking: any) {
+  bookingToDelete.value = null
+
+  // Find the full booking object from our bookings array
+  const fullBooking = bookings.value?.find(b => b.id === modalBooking.id)
+  if (!fullBooking) return
+
+  // Check if this is a recurring booking
+  if (isRecurringBooking(fullBooking)) {
+    const related = getRelatedBookings(fullBooking)
+    if (related.length > 0) {
+      // Show modal to ask if user wants to apply to series
+      recurringActionBooking.value = fullBooking
+      recurringActionType.value = 'delete'
+      recurringActionModalOpen.value = true
+      return
+    }
+  }
+
+  // Not recurring or no related bookings, proceed with single delete
+  await deleteDirect(fullBooking)
+}
+
+// Handle recurring action modal confirmation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleRecurringActionConfirm(applyToSeries: boolean, eligibleBookings: any[]) {
+  if (!recurringActionBooking.value || !recurringActionType.value) return
+
+  const relatedBookings = applyToSeries ? eligibleBookings as Booking[] : undefined
+
+  try {
+    if (recurringActionType.value === 'assignRoom' && recurringActionRoomId.value !== null) {
+      await assignRoomDirect(recurringActionBooking.value, recurringActionRoomId.value, relatedBookings)
+    } else if (recurringActionType.value === 'assignVenue' && recurringActionVenueId.value !== null) {
+      await confirmAndAssignVenueDirect(recurringActionBooking.value, recurringActionVenueId.value, relatedBookings)
+    } else if (recurringActionType.value === 'initiateExternal') {
+      await initiateExternalDirect(recurringActionBooking.value, relatedBookings)
+    } else if (recurringActionType.value === 'reject' && recurringActionRejectionReason.value) {
+      await rejectDirect(recurringActionBooking.value, recurringActionRejectionReason.value, relatedBookings)
+    } else if (recurringActionType.value === 'delete') {
+      await deleteDirect(recurringActionBooking.value, relatedBookings)
+    }
+  } finally {
+    // Reset modal state
+    recurringActionModalOpen.value = false
+    recurringActionBooking.value = null
+    recurringActionType.value = null
+    recurringActionRoomId.value = null
+    recurringActionRoomName.value = ''
+    recurringActionVenueId.value = null
+    recurringActionVenueName.value = ''
+    recurringActionRejectionReason.value = ''
+  }
+}
+
+// Handle recurring action modal cancel
+function handleRecurringActionCancel() {
+  recurringActionModalOpen.value = false
+  recurringActionBooking.value = null
+  recurringActionType.value = null
+  recurringActionRoomId.value = null
+  recurringActionRoomName.value = ''
+  recurringActionVenueId.value = null
+  recurringActionVenueName.value = ''
+  recurringActionRejectionReason.value = ''
+}
+
 // Bulk reject selected bookings
 async function bulkReject() {
-  const pendingBookings = selectedBookings.value.filter(b => b.status === 'PENDING')
+  const pendingBookings = selectedBookings.value.filter(
+    b => b.status === 'PENDING' || b.status === 'AWAITING_EXTERNAL'
+  )
   if (pendingBookings.length === 0) {
     toast.add({
       title: 'No pending bookings',
-      description: 'Only pending bookings can be rejected',
+      description: 'Only pending or awaiting external bookings can be rejected',
       icon: 'i-lucide-info',
       color: 'neutral'
     })
@@ -257,17 +618,20 @@ async function bulkReject() {
   }
 
   try {
-    await Promise.all(
-      pendingBookings.map(booking =>
-        $fetch(`/api/bookings/${booking.id}`, {
-          method: 'PUT',
-          body: {
+    // Use bulk endpoint
+    await $fetch('/api/bookings/bulk', {
+      method: 'PUT',
+      body: {
+        updates: pendingBookings.map(b => ({
+          id: b.id,
+          data: {
             status: 'REJECTED',
             rejectionReason: 'Bulk rejection'
           }
-        })
-      )
-    )
+        }))
+      }
+    })
+
     toast.add({
       title: 'Bookings rejected',
       description: `${pendingBookings.length} booking(s) have been rejected`,
@@ -292,11 +656,14 @@ async function bulkDelete() {
   if (selectedBookings.value.length === 0) return
 
   try {
-    await Promise.all(
-      selectedBookings.value.map(booking =>
-        $fetch(`/api/bookings/${booking.id}`, { method: 'DELETE' })
-      )
-    )
+    // Use bulk delete endpoint
+    await $fetch('/api/bookings/bulk', {
+      method: 'DELETE',
+      body: {
+        bookingIds: selectedBookings.value.map(b => b.id)
+      }
+    })
+
     toast.add({
       title: 'Bookings deleted',
       description: `${selectedBookings.value.length} booking(s) have been deleted`,
@@ -310,6 +677,169 @@ async function bulkDelete() {
     toast.add({
       title: 'Error',
       description: err.data?.message || 'Failed to delete bookings',
+      icon: 'i-lucide-x-circle',
+      color: 'error'
+    })
+  }
+}
+
+// Bulk assign room to selected bookings
+async function bulkAssignRoom(roomId: number) {
+  if (selectedBookings.value.length === 0) return
+
+  // Filter bookings that can receive room assignment (PENDING or AWAITING_EXTERNAL)
+  const assignableBookings = selectedBookings.value.filter(
+    b => b.status === 'PENDING' || b.status === 'AWAITING_EXTERNAL'
+  )
+
+  if (assignableBookings.length === 0) {
+    toast.add({
+      title: 'No assignable bookings',
+      description: 'Only PENDING or AWAITING_EXTERNAL bookings can be assigned rooms',
+      icon: 'i-lucide-info',
+      color: 'neutral'
+    })
+    return
+  }
+
+  try {
+    // Use bulk endpoint
+    await $fetch('/api/bookings/bulk', {
+      method: 'PUT',
+      body: {
+        updates: assignableBookings.map(b => ({
+          id: b.id,
+          data: {
+            roomId,
+            status: 'CONFIRMED'
+          }
+        }))
+      }
+    })
+
+    const roomName = rooms.value?.find(r => r.id === roomId)?.name || 'room'
+    toast.add({
+      title: 'Rooms assigned',
+      description: `${assignableBookings.length} booking(s) assigned to ${roomName}`,
+      icon: 'i-lucide-check',
+      color: 'success'
+    })
+    rowSelection.value = {}
+    bulkAssignRoomId.value = null
+    await refreshBookings()
+  } catch (error: unknown) {
+    const err = error as { data?: { message?: string } }
+    toast.add({
+      title: 'Error',
+      description: err.data?.message || 'Failed to assign rooms',
+      icon: 'i-lucide-x-circle',
+      color: 'error'
+    })
+  }
+}
+
+// Bulk assign external venue to selected bookings
+async function bulkAssignVenue(venueId: number) {
+  if (selectedBookings.value.length === 0) return
+
+  // Filter bookings that can receive venue assignment (AWAITING_EXTERNAL)
+  const assignableBookings = selectedBookings.value.filter(
+    b => b.status === 'AWAITING_EXTERNAL'
+  )
+
+  if (assignableBookings.length === 0) {
+    toast.add({
+      title: 'No assignable bookings',
+      description: 'Only AWAITING_EXTERNAL bookings can be assigned venues',
+      icon: 'i-lucide-info',
+      color: 'neutral'
+    })
+    return
+  }
+
+  try {
+    // Use bulk endpoint
+    await $fetch('/api/bookings/bulk', {
+      method: 'PUT',
+      body: {
+        updates: assignableBookings.map(b => ({
+          id: b.id,
+          data: {
+            externalVenueId: venueId,
+            status: 'CONFIRMED'
+          }
+        }))
+      }
+    })
+
+    const venue = venues.value?.find(v => v.id === venueId)
+    const venueName = venue ? `${venue.building} - ${venue.roomName}` : 'venue'
+    toast.add({
+      title: 'Venues assigned',
+      description: `${assignableBookings.length} booking(s) confirmed at ${venueName}`,
+      icon: 'i-lucide-check',
+      color: 'success'
+    })
+    rowSelection.value = {}
+    bulkAssignVenueId.value = null
+    await refreshBookings()
+  } catch (error: unknown) {
+    const err = error as { data?: { message?: string } }
+    toast.add({
+      title: 'Error',
+      description: err.data?.message || 'Failed to assign venues',
+      icon: 'i-lucide-x-circle',
+      color: 'error'
+    })
+  }
+}
+
+// Bulk initiate external booking
+async function bulkInitiateExternal() {
+  if (selectedBookings.value.length === 0) return
+
+  // Filter bookings that can be initiated as external (PENDING only)
+  const initiableBookings = selectedBookings.value.filter(
+    b => b.status === 'PENDING'
+  )
+
+  if (initiableBookings.length === 0) {
+    toast.add({
+      title: 'No initiable bookings',
+      description: 'Only PENDING bookings can be initiated as external',
+      icon: 'i-lucide-info',
+      color: 'neutral'
+    })
+    return
+  }
+
+  try {
+    // Use bulk endpoint
+    await $fetch('/api/bookings/bulk', {
+      method: 'PUT',
+      body: {
+        updates: initiableBookings.map(b => ({
+          id: b.id,
+          data: {
+            status: 'AWAITING_EXTERNAL'
+          }
+        }))
+      }
+    })
+
+    toast.add({
+      title: 'External bookings initiated',
+      description: `${initiableBookings.length} booking(s) set to awaiting external`,
+      icon: 'i-lucide-check',
+      color: 'success'
+    })
+    rowSelection.value = {}
+    await refreshBookings()
+  } catch (error: unknown) {
+    const err = error as { data?: { message?: string } }
+    toast.add({
+      title: 'Error',
+      description: err.data?.message || 'Failed to initiate external bookings',
       icon: 'i-lucide-x-circle',
       color: 'error'
     })
@@ -334,7 +864,7 @@ function getRowItems(row: Row<Booking>) {
       icon: 'i-lucide-door-open',
       children: rooms.value.map(room => ({
         label: room.name,
-        onSelect: () => assignRoom(booking, room.id)
+        onSelect: () => assignRoom(booking, room.id, room.name)
       }))
     })
   }
@@ -355,7 +885,7 @@ function getRowItems(row: Row<Booking>) {
       icon: 'i-lucide-check-circle',
       children: venues.value.map(venue => ({
         label: `${venue.building} - ${venue.roomName}`,
-        onSelect: () => confirmAndAssignVenue(booking, venue.id)
+        onSelect: () => confirmAndAssignVenue(booking, venue.id, `${venue.building} - ${venue.roomName}`)
       }))
     })
   }
@@ -639,12 +1169,85 @@ watch(() => statusFilter.value, (newVal) => {
         <div class="flex flex-wrap items-center gap-1.5">
           <!-- Bulk Action Buttons (show when rows are selected) -->
           <template v-if="selectedBookings.length > 0">
+            <UDropdownMenu
+              v-if="rooms && rooms.length > 0 && selectedBookings.some(b => b.status === 'PENDING' || b.status === 'AWAITING_EXTERNAL')"
+              :items="[
+                {
+                  type: 'label' as const,
+                  label: 'Assign Room to Selected'
+                },
+                ...rooms.map(room => ({
+                  label: room.name,
+                  icon: 'i-lucide-door-open',
+                  onSelect: () => bulkAssignRoom(room.id)
+                }))
+              ]"
+            >
+              <UButton
+                label="Assign Room"
+                color="primary"
+                variant="subtle"
+                icon="i-lucide-door-open"
+                trailing-icon="i-lucide-chevron-down"
+              >
+                <template #trailing>
+                  <UKbd>
+                    {{ selectedBookings.filter(b => b.status === 'PENDING' || b.status === 'AWAITING_EXTERNAL').length }}
+                  </UKbd>
+                </template>
+              </UButton>
+            </UDropdownMenu>
+
             <UButton
+              v-if="selectedBookings.some(b => b.status === 'PENDING')"
+              label="Initiate External"
+              color="primary"
+              variant="subtle"
+              icon="i-lucide-external-link"
+              @click="bulkInitiateExternal"
+            >
+              <template #trailing>
+                <UKbd>
+                  {{ selectedBookings.filter(b => b.status === 'PENDING').length }}
+                </UKbd>
+              </template>
+            </UButton>
+
+            <UDropdownMenu
+              v-if="venues && venues.length > 0 && selectedBookings.some(b => b.status === 'AWAITING_EXTERNAL')"
+              :items="[
+                {
+                  type: 'label' as const,
+                  label: 'Assign Venue to Selected'
+                },
+                ...venues.map(venue => ({
+                  label: `${venue.building} - ${venue.roomName}`,
+                  icon: 'i-lucide-map-pin',
+                  onSelect: () => bulkAssignVenue(venue.id)
+                }))
+              ]"
+            >
+              <UButton
+                label="Assign Venue"
+                color="primary"
+                variant="subtle"
+                icon="i-lucide-map-pin"
+                trailing-icon="i-lucide-chevron-down"
+              >
+                <template #trailing>
+                  <UKbd>
+                    {{ selectedBookings.filter(b => b.status === 'AWAITING_EXTERNAL').length }}
+                  </UKbd>
+                </template>
+              </UButton>
+            </UDropdownMenu>
+
+            <UButton
+              v-if="selectedBookings.some(b => b.status === 'PENDING')"
               label="Reject"
               color="warning"
               variant="subtle"
               icon="i-lucide-x-circle"
-              :disabled="selectedBookings.every(b => b.status !== 'PENDING')"
               @click="bulkReject"
             >
               <template #trailing>
@@ -735,6 +1338,22 @@ watch(() => statusFilter.value, (newVal) => {
         }"
       />
 
+      <div class="flex items-center justify-between gap-3 border-t border-default pt-4 mt-auto">
+        <div class="text-sm text-muted">
+          {{ table?.tableApi?.getFilteredSelectedRowModel().rows.length || 0 }} of
+          {{ table?.tableApi?.getFilteredRowModel().rows.length || 0 }} row(s) selected.
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <UPagination
+            :default-page="(table?.tableApi?.getState().pagination.pageIndex || 0) + 1"
+            :items-per-page="table?.tableApi?.getState().pagination.pageSize"
+            :total="table?.tableApi?.getFilteredRowModel().rows.length"
+            @update:page="(p: number) => table?.tableApi?.setPageIndex(p - 1)"
+          />
+        </div>
+      </div>
+
       <!-- Modals -->
       <BookingsEditModal
         v-model:open="editModalOpen"
@@ -744,12 +1363,23 @@ watch(() => statusFilter.value, (newVal) => {
 
       <BookingsRejectModal
         :booking="bookingToReject"
-        @refresh="refreshBookings"
+        @reject="handleRejectConfirm"
       />
 
       <BookingsDeleteModal
         :booking="bookingToDelete"
-        @refresh="refreshBookings"
+        @delete="handleDeleteConfirm"
+      />
+
+      <BookingsRecurringActionModal
+        v-model:open="recurringActionModalOpen"
+        :booking="recurringActionBooking"
+        :action="recurringActionType"
+        :room-name="recurringActionRoomName"
+        :venue-name="recurringActionVenueName"
+        :related-bookings="relatedBookingsForModal"
+        @confirm="handleRecurringActionConfirm"
+        @cancel="handleRecurringActionCancel"
       />
     </template>
   </UDashboardPanel>

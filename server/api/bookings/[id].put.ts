@@ -44,7 +44,7 @@
  * @authenticated
  */
 import prisma from '~~/server/database'
-import { notifyBookingUpdate } from '~~/server/utils/notifications'
+import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -175,14 +175,15 @@ export default defineEventHandler(async (event) => {
 
     // Send notification if status changed
     if (statusChanged && updatedBooking.user) {
+      const bookingDateTime = formatBookingDateTime(updatedBooking)
       const statusMessages: Record<string, string> = {
-        CONFIRMED: `Your booking "${updatedBooking.eventTitle}" has been confirmed in ${updatedBooking.room ? `${updatedBooking.room.name}` : `${updatedBooking.externalVenue?.building} - ${updatedBooking.externalVenue?.roomName}`}.`,
-        AWAITING_EXTERNAL: `Your booking "${updatedBooking.eventTitle}" has been assigned to an external venue and is awaiting confirmation.`,
-        REJECTED: `Your booking "${updatedBooking.eventTitle}" has been rejected${updatedBooking.rejectionReason ? `: ${updatedBooking.rejectionReason}` : '.'}`,
-        CANCELLED: `Your booking "${updatedBooking.eventTitle}" has been cancelled.`
+        CONFIRMED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been confirmed in ${updatedBooking.room ? `${updatedBooking.room.name}` : `${updatedBooking.externalVenue?.building} - ${updatedBooking.externalVenue?.roomName}`}.`,
+        AWAITING_EXTERNAL: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been assigned to an external venue and is awaiting confirmation.`,
+        REJECTED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been rejected${updatedBooking.rejectionReason ? `: ${updatedBooking.rejectionReason}` : '.'}`,
+        CANCELLED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been cancelled.`
       }
 
-      const message = statusMessages[updatedBooking.status] || `Your booking "${updatedBooking.eventTitle}" status has been updated to ${updatedBooking.status}.`
+      const message = statusMessages[updatedBooking.status] || `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) status has been updated to ${updatedBooking.status}.`
 
       // Fetch full user record for notifications
       const fullUser = await db.user.findUnique({

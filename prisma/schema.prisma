@@ -89,6 +89,10 @@ model ExternalVenue {
 /// 
 /// Either roomId OR externalVenueId will be set, not both.
 /// userId is nullable to preserve booking history if user account is deleted.
+/// 
+/// Recurring Bookings:
+/// - parentBookingId: Links to the first occurrence in a recurring series (null for standalone bookings)
+/// - occurrenceNumber: Position in the series (1, 2, 3..., null for standalone bookings)
 model Booking {
   id                Int           @id @default(autoincrement())
   userId            String?       @map("user_id")
@@ -101,14 +105,58 @@ model Booking {
   status            BookingStatus @default(PENDING)
   notes             String?
   rejectionReason   String?       @map("rejection_reason")
+  parentBookingId   Int?          @map("parent_booking_id")
+  occurrenceNumber  Int?          @map("occurrence_number")
   createdAt         DateTime      @default(now()) @map("created_at")
 
   // Relations
-  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
-  room          Room?          @relation(fields: [roomId], references: [id])
-  externalVenue ExternalVenue? @relation(fields: [externalVenueId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  room             Room?             @relation(fields: [roomId], references: [id])
+  externalVenue    ExternalVenue?    @relation(fields: [externalVenueId], references: [id])
+  parentBooking    Booking?          @relation("RecurringBookings", fields: [parentBookingId], references: [id], onDelete: Cascade)
+  childBookings    Booking[]         @relation("RecurringBookings")
+  recurringPattern RecurringPattern?
 
+  @@index([parentBookingId])
+  @@index([startTime, endTime])
+  @@index([roomId, startTime, endTime])
   @@map("bookings")
+}
+
+/// Recurring booking patterns
+/// 
+/// Defines the recurrence pattern for a series of bookings.
+/// The pattern is attached to the parent (first) booking in the series.
+/// 
+/// Frequency options:
+/// - DAILY: Repeats every N days
+/// - WEEKLY: Repeats on specific days of the week
+/// - CUSTOM: Custom interval pattern
+/// 
+/// Limits:
+/// - maxOccurrences: Hard limit of 52 (approximately one year of weekly bookings)
+/// - Either maxOccurrences OR endDate must be set
+model RecurringPattern {
+  id             Int                 @id @default(autoincrement())
+  bookingId      Int                 @unique @map("booking_id")
+  frequency      RecurrenceFrequency
+  interval       Int                 @default(1) // Every N days/weeks
+  daysOfWeek     String?             @map("days_of_week") // JSON array for weekly ["MON", "WED", "FRI"]
+  maxOccurrences Int                 @map("max_occurrences") // 1-52
+  endDate        DateTime?           @map("end_date") // Alternative to maxOccurrences
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("recurring_patterns")
+}
+
+/// Recurrence frequency options
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  CUSTOM
 }
 
 /// Web Push notification subscriptions

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import type { CalendarDate } from '@internationalized/date'
 import { DateFormatter } from '@internationalized/date'
+import { debounce } from 'perfect-debounce'
 
 const emit = defineEmits<{
   (e: 'refresh'): void
@@ -11,6 +12,18 @@ const emit = defineEmits<{
 const toast = useToast()
 const open = ref(false)
 const isSubmitting = ref(false)
+
+// Room availability composable
+const {
+  availableRooms,
+  unavailableRooms,
+  isLoading: availabilityLoading,
+  fetchAvailability,
+  totalAvailable,
+  totalUnavailable
+} = useRoomAvailability({ autoFetch: false, includeUnavailable: true })
+
+const showUnavailableRooms = ref(false)
 
 const { data: users, status: usersStatus, refresh: refreshUsers } = useLazyFetch('/api/users')
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
@@ -34,12 +47,33 @@ const userItems = computed(() =>
   })) ?? []
 )
 
-const roomItems = computed(() =>
-  rooms.value?.map(r => ({
-    id: r.id,
-    label: r.name
-  })) ?? []
-)
+// Combine availability data with room data for admin
+const roomItemsWithAvailability = computed(() => {
+  const roomsWithAvailability = availableRooms.value.length > 0 || unavailableRooms.value.length > 0
+    ? [...availableRooms.value, ...unavailableRooms.value]
+    : rooms.value || []
+
+  return roomsWithAvailability.map((r) => {
+    const conflicts = 'conflicts' in r ? r.conflicts : []
+    const isAvailable = !conflicts || conflicts.length === 0
+
+    return {
+      id: r.id,
+      label: r.name,
+      isAvailable,
+      conflicts
+    }
+  })
+})
+
+// Filter rooms based on availability and user preference
+const roomItems = computed(() => {
+  if (showUnavailableRooms.value) {
+    return roomItemsWithAvailability.value
+  }
+  // By default, only show available rooms for admins
+  return roomItemsWithAvailability.value.filter(r => r.isAvailable)
+})
 
 const venueItems = computed(() =>
   venues.value?.map(v => ({
@@ -59,7 +93,11 @@ const formSchema = z.object({
   endTime: z.string().min(1, 'End time is required').regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format'),
   roomId: z.number().int().positive().optional().nullable(),
   externalVenueId: z.number().int().positive().optional().nullable(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  isRecurring: z.boolean().optional(),
+  recurringFrequency: z.enum(['DAILY', 'WEEKLY', 'CUSTOM']).optional(),
+  recurringDaysOfWeek: z.array(z.enum(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'])).optional(),
+  recurringMaxOccurrences: z.number().int().min(1).max(52).optional()
 }).refine(
   (data) => {
     if (!data.startTime || !data.endTime) return true
@@ -77,6 +115,18 @@ const formSchema = z.object({
     message: 'Cannot assign both an internal room and external venue',
     path: ['roomId']
   }
+).refine(
+  (data) => {
+    if (!data.isRecurring) return true
+    if (data.recurringFrequency === 'WEEKLY' && (!data.recurringDaysOfWeek || data.recurringDaysOfWeek.length === 0)) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'Weekly recurrence requires at least one day of week',
+    path: ['recurringDaysOfWeek']
+  }
 )
 
 type FormSchema = z.output<typeof formSchema>
@@ -92,7 +142,11 @@ const state = reactive({
   venueType: 'internal' as 'internal' | 'external' | undefined,
   roomId: undefined as number | undefined,
   externalVenueId: undefined as number | undefined,
-  notes: undefined as string | undefined
+  notes: undefined as string | undefined,
+  isRecurring: false,
+  recurringFrequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'CUSTOM',
+  recurringDaysOfWeek: [] as Array<'SUN' | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT'>,
+  recurringMaxOccurrences: 10
 })
 
 const venueTypeOptions = [
@@ -119,11 +173,24 @@ watch(() => state.venueType, (newType) => {
   }
 })
 
+// Debounced availability fetching when date/time changes
+const debouncedFetchAvailability = debounce(() => {
+  if (state.eventDate && state.startTime && state.endTime) {
+    const eventDate = state.eventDate as CalendarDate
+    const startTime = combineDateAndTime(eventDate, state.startTime)
+    const endTime = combineDateAndTime(eventDate, state.endTime)
+    fetchAvailability(startTime, endTime)
+  }
+}, 500)
+
+watch([() => state.eventDate, () => state.startTime, () => state.endTime], debouncedFetchAvailability)
+
 async function onSubmit(event: FormSubmitEvent<FormSchema>) {
   isSubmitting.value = true
   try {
     const eventDate = event.data.eventDate as CalendarDate
-    const payload = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = {
       userId: event.data.userId,
       eventTitle: event.data.eventTitle,
       numberOfAttendees: event.data.numberOfAttendees || undefined,
@@ -135,14 +202,25 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
       status: computedStatus.value
     }
 
-    await $fetch('/api/bookings', {
+    // Add recurring pattern if enabled
+    if (event.data.isRecurring && event.data.recurringFrequency && event.data.recurringMaxOccurrences) {
+      payload.recurringPattern = {
+        frequency: event.data.recurringFrequency,
+        interval: 1,
+        daysOfWeek: event.data.recurringDaysOfWeek || [],
+        maxOccurrences: event.data.recurringMaxOccurrences
+      }
+    }
+
+    const response = await $fetch<{ bookingId: number, occurrenceCount?: number }>('/api/bookings', {
       method: 'POST',
       body: payload
     })
 
+    const occurrenceCount = response.occurrenceCount || 1
     toast.add({
       title: 'Booking created',
-      description: `Successfully created booking for ${event.data.eventTitle}`,
+      description: `Successfully created ${occurrenceCount > 1 ? `${occurrenceCount} bookings` : 'booking'} for ${event.data.eventTitle}`,
       icon: 'i-lucide-check',
       color: 'success'
     })
@@ -157,7 +235,11 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
       venueType: 'internal',
       roomId: undefined,
       externalVenueId: undefined,
-      notes: undefined
+      notes: undefined,
+      isRecurring: false,
+      recurringFrequency: 'WEEKLY',
+      recurringDaysOfWeek: [],
+      recurringMaxOccurrences: 10
     })
 
     open.value = false
@@ -312,6 +394,16 @@ watch(() => state.externalVenueId, (newVal) => {
               </UFormField>
             </div>
 
+            <BookingsRecurringEventFields
+              v-model:is-recurring="state.isRecurring"
+              v-model:frequency="state.recurringFrequency"
+              v-model:days-of-week="state.recurringDaysOfWeek"
+              v-model:max-occurrences="state.recurringMaxOccurrences"
+              :event-date="state.eventDate"
+              context="admin"
+              day-name-format="short"
+            />
+
             <UFormField
               label="Notes"
               name="notes"
@@ -351,19 +443,46 @@ watch(() => state.externalVenueId, (newVal) => {
               <UFormField
                 v-if="state.venueType === 'internal'"
                 label="Select Room"
-                description="Choose an internal room"
                 name="roomId"
                 class="w-full"
               >
+                <template #description>
+                  <div class="flex items-center justify-between">
+                    <span>Choose an internal room</span>
+                    <div class="flex items-center gap-2 text-xs">
+                      <span v-if="totalAvailable > 0" class="text-green-600 dark:text-green-400">{{ totalAvailable }} available</span>
+                      <span v-if="totalUnavailable > 0" class="text-amber-600 dark:text-amber-400">{{ totalUnavailable }} unavailable</span>
+                      <UButton
+                        v-if="totalUnavailable > 0"
+                        size="xs"
+                        variant="ghost"
+                        :color="showUnavailableRooms ? 'primary' : 'neutral'"
+                        @click="showUnavailableRooms = !showUnavailableRooms"
+                      >
+                        {{ showUnavailableRooms ? 'Hide' : 'Show' }} unavailable
+                      </UButton>
+                    </div>
+                  </div>
+                </template>
                 <USelectMenu
                   v-model="state.roomId"
                   :items="roomItems"
                   value-key="id"
-                  :loading="roomsStatus === 'pending'"
+                  :loading="roomsStatus === 'pending' || availabilityLoading"
                   placeholder="Select room..."
                   :search-input="{ placeholder: 'Search rooms...' }"
                   class="w-full"
-                />
+                >
+                  <template #item-label="{ item }">
+                    <div class="flex items-center justify-between w-full">
+                      <span>{{ (item as any).label }}</span>
+                      <RoomAvailabilityBadge
+                        v-if="!(item as any).isAvailable"
+                        :conflicts="(item as any).conflicts"
+                      />
+                    </div>
+                  </template>
+                </USelectMenu>
               </UFormField>
 
               <UFormField

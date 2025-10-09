@@ -34,6 +34,36 @@ export interface BookingNotification {
 }
 
 /**
+ * Formats a booking's date and time for display in notifications
+ *
+ * @param booking - Booking to format
+ * @returns Formatted date/time string (e.g., "Mon, Jan 15, 2024 at 2:00 PM - 4:00 PM")
+ */
+export function formatBookingDateTime(booking: Booking): string {
+  const startDate = new Date(booking.startTime)
+  const endDate = new Date(booking.endTime)
+
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }
+
+  const timeOptions: Intl.DateTimeFormatOptions = {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }
+
+  const datePart = startDate.toLocaleDateString('en-GB', dateOptions)
+  const startTime = startDate.toLocaleTimeString('en-GB', timeOptions)
+  const endTime = endDate.toLocaleTimeString('en-GB', timeOptions)
+
+  return `${datePart} at ${startTime} - ${endTime}`
+}
+
+/**
  * Parses JSON notification channels from user record
  *
  * @param user - User record from database
@@ -86,6 +116,9 @@ export async function sendEmail(user: User, subject: string, content: string): P
   // Recommended services: Resend, SendGrid, AWS SES, Cloudflare Email Routing
   console.log(`[EMAIL] To: ${user.email}, Subject: ${subject}`)
 
+  // Don't send email in development
+  if (process.env.NODE_ENV === 'development') return
+
   const { error } = await resend.emails.send({
     from: `"Room Bookings" <${process.env.EMAIL}>`,
     replyTo: `"Theatre Manager" <theatremanager@newtheatre.org.uk>`,
@@ -113,6 +146,9 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
 
   const emailAddresses = users.map(user => user.email)
   console.log(`[BATCH EMAIL] To: ${emailAddresses.length} recipients, Subject: ${subject}`)
+
+  // Don't send email in development
+  if (process.env.NODE_ENV === 'development') return
 
   // Send as batch with BCC (blind carbon copy)
   const { error } = await resend.emails.send({
@@ -181,6 +217,77 @@ export async function notifyBookingUpdate(
 
   if (channels.includes('PUSH')) {
     notifications.push(sendPushNotification(user.id, title, message, { bookingId: booking.id }))
+  }
+
+  await Promise.all(notifications)
+}
+
+/**
+ * Sends bulk booking update notifications to users
+ *
+ * Groups bookings by user and sends one notification per user with all their updates.
+ * More efficient than individual notifications for bulk operations.
+ *
+ * @param updates - Array of { user, booking, message } objects
+ */
+export async function notifyBulkBookingUpdates(
+  updates: Array<{ user: User, booking: Booking, message: string }>
+): Promise<void> {
+  if (updates.length === 0) return
+
+  // Group updates by user ID
+  const updatesByUser = new Map<string, Array<{ booking: Booking, message: string }>>()
+
+  for (const update of updates) {
+    const userId = update.user.id
+    if (!updatesByUser.has(userId)) {
+      updatesByUser.set(userId, [])
+    }
+    updatesByUser.get(userId)!.push({
+      booking: update.booking,
+      message: update.message
+    })
+  }
+
+  // Send one notification per user with all their updates
+  const notifications: Promise<void>[] = []
+
+  for (const [userId, userUpdates] of updatesByUser) {
+    const user = updates.find(u => u.user.id === userId)!.user
+
+    // Check if user wants booking update notifications
+    if (!shouldNotify(user, 'BOOKING_UPDATES')) {
+      continue
+    }
+
+    const channels = getNotificationChannels(user)
+
+    // Build combined message
+    const subject = userUpdates.length === 1
+      ? `Booking Update: ${userUpdates[0].booking.eventTitle}`
+      : `${userUpdates.length} Booking Updates`
+
+    const emailContent = userUpdates.length === 1
+      ? userUpdates[0].message
+      : `The following bookings have been updated:\n\n${userUpdates.map((u, i) => `${i + 1}. ${u.message}`).join('\n\n')}`
+
+    // Send via each enabled channel
+    if (channels.includes('EMAIL')) {
+      notifications.push(sendEmail(user, subject, emailContent))
+    }
+
+    if (channels.includes('PUSH')) {
+      const pushMessage = userUpdates.length === 1
+        ? userUpdates[0].message
+        : `${userUpdates.length} of your bookings have been updated`
+
+      notifications.push(sendPushNotification(
+        user.id,
+        subject,
+        pushMessage,
+        { bookingIds: userUpdates.map(u => u.booking.id) }
+      ))
+    }
   }
 
   await Promise.all(notifications)

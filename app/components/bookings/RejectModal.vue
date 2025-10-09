@@ -22,12 +22,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  refresh: []
+  reject: [booking: Booking, rejectionReason: string]
 }>()
 
 const toast = useToast()
 const open = ref(false)
-const isSubmitting = ref(false)
 const rejectionReason = ref('')
 
 // Watch for booking changes to open modal
@@ -49,36 +48,8 @@ async function onSubmit() {
     return
   }
 
-  isSubmitting.value = true
-  try {
-    await $fetch(`/api/bookings/${props.booking.id}`, {
-      method: 'PUT',
-      body: {
-        status: 'REJECTED',
-        rejectionReason: rejectionReason.value
-      }
-    })
-
-    toast.add({
-      title: 'Booking rejected',
-      description: `${props.booking.eventTitle} has been rejected`,
-      icon: 'i-lucide-x',
-      color: 'error'
-    })
-
-    open.value = false
-    emit('refresh')
-  } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to reject booking',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
-  } finally {
-    isSubmitting.value = false
-  }
+  open.value = false
+  emit('reject', props.booking, rejectionReason.value)
 }
 </script>
 
@@ -102,11 +73,13 @@ async function onSubmit() {
         <UFormField
           label="Rejection Reason"
           required
+          class="w-full"
         >
           <UTextarea
             v-model="rejectionReason"
             placeholder="e.g., Room not available at requested time..."
             :rows="4"
+            class="w-full"
           />
         </UFormField>
 
@@ -122,7 +95,6 @@ async function onSubmit() {
             color="error"
             variant="solid"
             :disabled="!rejectionReason.trim()"
-            :loading="isSubmitting"
             @click="onSubmit"
           />
         </div>
