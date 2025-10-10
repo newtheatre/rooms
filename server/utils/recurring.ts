@@ -15,7 +15,7 @@ export interface RecurringPatternInput {
   frequency: 'DAILY' | 'WEEKLY' | 'CUSTOM'
   interval?: number // Default 1
   daysOfWeek?: string[] // For WEEKLY: ['MON', 'TUE', 'WED', ...]
-  maxOccurrences: number // 1-52
+  maxOccurrences: number // 1-52 (soft limit of 12 in UI)
   endDate?: Date
 }
 

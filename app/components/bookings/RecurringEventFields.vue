@@ -165,7 +165,7 @@ const df = new DateFormatter('en-US', { dateStyle: 'medium' })
 
         <UFormField
           label="Number of Occurrences"
-          description="How many times should this event repeat? (max 52)"
+          description="How many times should this event repeat? (max 12)"
           name="recurringMaxOccurrences"
           required
           class="w-full"
@@ -173,7 +173,7 @@ const df = new DateFormatter('en-US', { dateStyle: 'medium' })
           <UInputNumber
             v-model="maxOccurrencesModel"
             :min="context === 'admin' ? 1 : 2"
-            :max="52"
+            :max="12"
             class="w-full"
           />
         </UFormField>

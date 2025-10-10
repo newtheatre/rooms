@@ -97,7 +97,7 @@ const formSchema = z.object({
   isRecurring: z.boolean().optional(),
   recurringFrequency: z.enum(['DAILY', 'WEEKLY', 'CUSTOM']).optional(),
   recurringDaysOfWeek: z.array(z.enum(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'])).optional(),
-  recurringMaxOccurrences: z.number().int().min(1).max(52).optional()
+  recurringMaxOccurrences: z.number().int().min(1).max(12).optional()
 }).refine(
   (data) => {
     if (!data.startTime || !data.endTime) return true

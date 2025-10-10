@@ -134,7 +134,7 @@ model Booking {
 /// - CUSTOM: Custom interval pattern
 /// 
 /// Limits:
-/// - maxOccurrences: Hard limit of 52 (approximately one year of weekly bookings)
+/// - maxOccurrences: Hard limit of 52 (approximately one year of weekly bookings), soft limit of 12 in UI (approximately one term/semester)
 /// - Either maxOccurrences OR endDate must be set
 model RecurringPattern {
   id             Int                 @id @default(autoincrement())

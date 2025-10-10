@@ -136,8 +136,8 @@ export const recurringPatternSchema = z.object({
   frequency: recurrenceFrequencySchema,
   interval: z.number().int().min(1).max(365).optional().default(1),
   daysOfWeek: z.array(dayOfWeekSchema).min(1).optional(),
-  maxOccurrences: z.number().int().min(1).max(52),
-  endDate: z.string().datetime().optional()
+  maxOccurrences: z.number().int().min(1).max(52), // Soft limit of 12 in UI
+  endDate: z.iso.datetime().optional()
 }).refine(
   (data) => {
     // Weekly recurrence requires daysOfWeek
@@ -158,8 +158,8 @@ export const recurringPatternSchema = z.object({
 export const createBookingSchema = z.object({
   eventTitle: z.string().min(1, 'Event title is required').max(255),
   numberOfAttendees: z.number().int().positive().optional(),
-  startTime: z.string().datetime('Invalid start time'),
-  endTime: z.string().datetime('Invalid end time'),
+  startTime: z.iso.datetime('Invalid start time'),
+  endTime: z.iso.datetime('Invalid end time'),
   notes: z.string().max(1000).optional(),
   recurringPattern: recurringPatternSchema.optional()
 }).refine(
@@ -181,8 +181,8 @@ export const adminCreateBookingSchema = z.object({
   userId: z.string().min(1, 'User ID is required'),
   eventTitle: z.string().min(1, 'Event title is required').max(255),
   numberOfAttendees: z.number().int().positive().optional(),
-  startTime: z.string().datetime('Invalid start time'),
-  endTime: z.string().datetime('Invalid end time'),
+  startTime: z.iso.datetime('Invalid start time'),
+  endTime: z.iso.datetime('Invalid end time'),
   roomId: z.number().int().positive().optional(),
   externalVenueId: z.number().int().positive().optional(),
   status: bookingStatusSchema.optional(),
