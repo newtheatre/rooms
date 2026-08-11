@@ -79,7 +79,7 @@ export default defineEventHandler(async (event) => {
   const includeInactive = query.includeInactive === 'true'
 
   // Only admins can see inactive rooms
-  const isAdmin = user.role === 'ADMIN'
+  const isAdmin = hasRole(user, 'rooms', 'ADMIN')
   const showInactive = isAdmin && includeInactive
 
   const rooms = await prisma.room.findMany({

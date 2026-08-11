@@ -5,7 +5,6 @@
  * Admin-only endpoint.
  *
  * Query Parameters:
- * - role?: Role (filter by role: ADMIN or STANDARD)
  * - search?: string (search by name or email)
  *
  * Process:
@@ -22,7 +21,7 @@
  *
  * Uses nuxt-auth-utils:
  * - requireUserSession(event)
- * - Check user.role === 'ADMIN'
+ * - Check rooms:ADMIN (estate session)
  *
  * @method GET
  * @route /api/users
@@ -39,12 +38,6 @@ defineRouteMeta({
     description: 'Retrieves all user accounts (admin only)',
     security: [{ sessionAuth: [] }],
     parameters: [
-      {
-        in: 'query',
-        name: 'role',
-        schema: { type: 'string', enum: ['ADMIN', 'STANDARD'] },
-        description: 'Filter by user role'
-      },
       {
         in: 'query',
         name: 'search',
@@ -65,7 +58,6 @@ defineRouteMeta({
                   id: { type: 'string' },
                   email: { type: 'string' },
                   name: { type: 'string' },
-                  role: { type: 'string', enum: ['ADMIN', 'STANDARD'] },
                   createdAt: { type: 'string', format: 'date-time' },
                   bookingCount: { type: 'integer' }
                 }
@@ -86,17 +78,13 @@ export default defineEventHandler(async (event) => {
 
   const db = prisma
 
-  // Parse query parameters
+  // Parse query parameters. Roles now live in the central auth service —
+  // this mirror table has no role column to filter by.
   const query = getQuery(event)
-  const roleFilter = query.role as string | undefined
   const searchFilter = query.search as string | undefined
 
   // Build where clause
   const where: Prisma.UserWhereInput = {}
-
-  if (roleFilter && (roleFilter === 'ADMIN' || roleFilter === 'STANDARD')) {
-    where.role = roleFilter
-  }
 
   if (searchFilter) {
     where.OR = [
@@ -112,7 +100,6 @@ export default defineEventHandler(async (event) => {
       id: true,
       email: true,
       name: true,
-      role: true,
       createdAt: true,
       _count: {
         select: {
@@ -130,7 +117,6 @@ export default defineEventHandler(async (event) => {
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role,
     createdAt: user.createdAt,
     bookingCount: user._count.bookings
   }))

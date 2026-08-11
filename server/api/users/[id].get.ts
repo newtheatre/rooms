@@ -19,7 +19,7 @@
  *
  * Uses nuxt-auth-utils:
  * - requireUserSession(event)
- * - Check user.role === 'ADMIN'
+ * - Check rooms:ADMIN (estate session)
  *
  * @method GET
  * @route /api/users/[id]
@@ -54,7 +54,7 @@ defineRouteMeta({
                 id: { type: 'string' },
                 email: { type: 'string' },
                 name: { type: 'string' },
-                role: { type: 'string' },
+
                 createdAt: { type: 'string', format: 'date-time' },
                 bookingCount: { type: 'integer' },
                 recentBookings: { type: 'array', items: { type: 'object' } }
@@ -94,7 +94,6 @@ export default defineEventHandler(async (event) => {
       id: true,
       email: true,
       name: true,
-      role: true,
       createdAt: true,
       _count: {
         select: {
@@ -128,7 +127,6 @@ export default defineEventHandler(async (event) => {
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role,
     createdAt: user.createdAt,
     bookingCount: user._count.bookings,
     recentBookings: user.bookings

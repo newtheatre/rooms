@@ -1,29 +1,20 @@
 /**
- * Authentication Utilities
+ * Authentication utilities — stage-door integration.
  *
- * Provides helper functions for user authentication, authorization,
- * and session management.
- *
- * @module server/utils/auth
+ * The session is the estate-wide `nnt-session` cookie sealed by
+ * auth.newtheatre.org.uk. This app reads it (getUserSession) and NEVER
+ * writes it. Authorisation stays here: `rooms:ADMIN` is the only role this
+ * app owns; logged-in is sufficient for booking requests (carried-forward
+ * behaviour).
  */
 
 import type { H3Event } from 'h3'
 import type { User } from '#auth-utils'
 
 /**
- * Requires user to be authenticated
+ * Requires user to be authenticated.
  *
- * Throws 401 error if user is not authenticated.
- *
- * @param event - H3 event object
- * @returns User session data
- * @throws 401 Unauthorized if user is not authenticated
- *
- * @example
- * ```ts
- * const user = await requireAuth(event)
- * // user is guaranteed to be authenticated here
- * ```
+ * @throws 401 Unauthorized if there is no valid session
  */
 export async function requireAuth(event: H3Event): Promise<User> {
   const { user } = await getUserSession(event)
@@ -40,25 +31,37 @@ export async function requireAuth(event: H3Event): Promise<User> {
 }
 
 /**
- * Requires user to have admin role
+ * Requires the `rooms:ADMIN` role.
  *
- * Throws 401 if not authenticated, 403 if not admin.
+ * Privileged surfaces must not honour stale roles (session contract §rules):
+ * if the session's last DB re-read is older than 15 minutes, this rejects
+ * with 401 and a `stale: true` hint — the client middleware bounces the
+ * browser through the auth service's refresh endpoint, which re-reads roles
+ * and rejects disabled users and revoked sessions.
  *
- * @param event - H3 event object
- * @returns User session data for admin user
- * @throws 401 Unauthorized if user is not authenticated
- * @throws 403 Forbidden if user is not an admin
- *
- * @example
- * ```ts
- * const admin = await requireAdmin(event)
- * // user is guaranteed to be an authenticated admin
- * ```
+ * @throws 401 if unauthenticated or the session needs a refresh
+ * @throws 403 if authenticated but not a rooms admin
  */
 export async function requireAdmin(event: H3Event): Promise<User> {
-  const user = await requireAuth(event)
+  const session = await getUserSession(event)
 
-  if (user.role !== 'ADMIN') {
+  if (!session.user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized',
+      message: 'You must be logged in to access this resource'
+    })
+  }
+
+  if (isStale(session)) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Session refresh required',
+      data: { stale: true }
+    })
+  }
+
+  if (!hasRole(session.user, 'rooms', 'ADMIN')) {
     throw createError({
       statusCode: 403,
       statusMessage: 'Forbidden',
@@ -66,5 +69,5 @@ export async function requireAdmin(event: H3Event): Promise<User> {
     })
   }
 
-  return user
+  return session.user
 }

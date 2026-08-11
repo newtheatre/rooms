@@ -5,7 +5,7 @@ const { user } = useUserSession()
 
 const open = ref(false)
 
-const isAdmin = computed(() => user.value?.role === 'ADMIN')
+const isAdmin = computed(() => hasRole(user.value, 'rooms', 'ADMIN'))
 
 const links = computed<NavigationMenuItem[][]>(() => {
   const baseLinks: NavigationMenuItem[] = [{

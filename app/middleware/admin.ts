@@ -1,20 +1,36 @@
 /**
- * Admin Authorization Middleware
+ * Admin authorisation middleware — stage-door integration.
  *
- * Ensures the user is authenticated AND has admin role.
- * Redirects to /login if not authenticated.
- * Redirects to / (dashboard) if authenticated but not admin.
- *
- * Apply this to routes that require admin access.
+ * Requires the estate session plus the scoped `rooms:ADMIN` role. Roles
+ * ride in the sealed cookie, so before honouring one on a privileged
+ * surface the session must be fresh (≤15 min since the auth service last
+ * re-read the DB — session contract §rules). Stale sessions bounce through
+ * the auth service's refresh endpoint, which re-seals with current roles
+ * and rejects revoked/disabled users.
  */
-export default defineNuxtRouteMiddleware(() => {
-  const { loggedIn, user } = useUserSession()
+export default defineNuxtRouteMiddleware((to) => {
+  const { loggedIn, user, session } = useUserSession()
+  const config = useRuntimeConfig()
+  const target = `${useRequestURL().origin}${to.fullPath}`
 
   if (!loggedIn.value) {
-    return navigateTo('/login')
+    if (import.meta.dev) {
+      return navigateTo('/dev-login?admin=1', { external: true })
+    }
+    return navigateTo(
+      `${config.public.authBaseURL}/login?redirect=${encodeURIComponent(target)}`,
+      { external: true }
+    )
   }
 
-  if (user.value?.role !== 'ADMIN') {
+  if (!import.meta.dev && isStale(session.value)) {
+    return navigateTo(
+      `${config.public.authBaseURL}/api/session/refresh?redirect=${encodeURIComponent(target)}`,
+      { external: true }
+    )
+  }
+
+  if (!hasRole(user.value, 'rooms', 'ADMIN')) {
     return navigateTo('/')
   }
 })

@@ -166,7 +166,7 @@ export default defineEventHandler(async (event) => {
 
   // Parse options
   const excludeBookingId = query.excludeBookingId ? Number(query.excludeBookingId) : undefined
-  const includeInactive = user.role === 'ADMIN' && query.includeInactive === 'true'
+  const includeInactive = hasRole(user, 'rooms', 'ADMIN') && query.includeInactive === 'true'
   const includeUnavailable = query.includeUnavailable === 'true'
 
   // Get available rooms
@@ -197,14 +197,14 @@ export default defineEventHandler(async (event) => {
     return conflicts.map((conflict) => {
       const formatted: Record<string, unknown> = {
         id: conflict.id,
-        eventTitle: user.role === 'ADMIN' ? conflict.eventTitle : 'Booked',
+        eventTitle: hasRole(user, 'rooms', 'ADMIN') ? conflict.eventTitle : 'Booked',
         startTime: conflict.startTime,
         endTime: conflict.endTime,
         status: conflict.status
       }
 
       const conflictWithUser = conflict as unknown as ConflictWithUser
-      if (user.role === 'ADMIN' && conflictWithUser.user) {
+      if (hasRole(user, 'rooms', 'ADMIN') && conflictWithUser.user) {
         formatted.user = conflictWithUser.user
       }
 

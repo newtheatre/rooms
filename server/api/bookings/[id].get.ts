@@ -112,7 +112,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check authorization: user owns booking OR user is admin
-  if (booking.userId !== user.id && user.role !== 'ADMIN') {
+  if (booking.userId !== user.id && !hasRole(user, 'rooms', 'ADMIN')) {
     throw createError({
       statusCode: 403,
       message: 'You do not have permission to view this booking'
