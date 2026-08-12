@@ -88,27 +88,6 @@ export const resetPasswordSchema = z.object({
 })
 
 /**
- * Role schema
- */
-export const roleSchema = z.enum(['ADMIN', 'STANDARD'])
-
-export const createUserSchema = z.object({
-  name: z.string().min(1).max(255),
-  email: emailSchema,
-  role: roleSchema,
-  password: z.string().min(8).optional()
-})
-
-/**
- * Update user schema (admin)
- */
-export const updateUserSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255).optional(),
-  email: emailSchema.optional(),
-  role: roleSchema.optional()
-})
-
-/**
  * Booking status schema
  */
 export const bookingStatusSchema = z.enum([

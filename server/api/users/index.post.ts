@@ -1,29 +1,28 @@
 /**
  * POST /api/users
  *
- * Create a new user account (admin only).
+ * Create a user to attach a booking to (admin only).
+ *
+ * Identity lives in the central auth service — this endpoint asks it for a
+ * shadow account (match-or-create by email, service-token authenticated)
+ * and mirrors the result locally. No passwords are generated or returned;
+ * the person can claim the account later via the auth service. Full account
+ * management happens at auth.newtheatre.org.uk/admin.
  *
  * Request body:
  * - name: string (1-255 chars)
- * - email: string (valid email, unique)
- * - role: 'ADMIN' | 'STANDARD'
- * - password: string (8+ chars) - optional, will be auto-generated if not provided
+ * - email: string (valid email)
  *
- * Returns: Created user object with password field if auto-generated
- *
- * Errors:
- * - 401: Not authenticated
- * - 403: User is not an admin
- * - 409: Email already exists
- * - 400: Validation error
+ * Returns: the mirrored user { id, email, name, existing }
  */
 import prisma from '~~/server/database'
+import { z } from 'zod'
 
 defineRouteMeta({
   openAPI: {
     tags: ['Users'],
-    summary: 'Create user',
-    description: 'Creates a new user account (admin only)',
+    summary: 'Create user (shadow account via the auth service)',
+    description: 'Match-or-create a central shadow account and mirror it locally (admin only)',
     security: [{ sessionAuth: [] }],
     requestBody: {
       required: true,
@@ -31,101 +30,64 @@ defineRouteMeta({
         'application/json': {
           schema: {
             type: 'object',
-            required: ['name', 'email', 'role'],
+            required: ['name', 'email'],
             properties: {
               name: { type: 'string', description: 'User name' },
-              email: { type: 'string', format: 'email', description: 'User email' },
-              role: { type: 'string', enum: ['ADMIN', 'STANDARD'], description: 'User role' },
-              password: { type: 'string', description: 'Password (optional, will be auto-generated if not provided)' }
+              email: { type: 'string', format: 'email', description: 'User email' }
             }
           }
         }
       }
     },
     responses: {
-      200: {
-        description: 'User created successfully',
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                name: { type: 'string' },
-                email: { type: 'string' },
-                role: { type: 'string' },
-                createdAt: { type: 'string', format: 'date-time' },
-                bookingCount: { type: 'integer' },
-                password: { type: 'string', description: 'Auto-generated password (only returned if password was not provided)' }
-              }
-            }
-          }
-        }
-      },
-      400: { description: 'Validation error' },
+      200: { description: 'User created or matched' },
       401: { description: 'Not authenticated' },
-      403: { description: 'Not admin' },
-      409: { description: 'Email already exists' }
+      403: { description: 'Not an admin' },
+      502: { description: 'Auth service unavailable' }
     }
   }
 })
 
-function generatePassword() {
-  // Generate a random password with uppercase, lowercase, numbers, and symbols
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
-  return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-}
+const createUserSchema = z.object({
+  name: z.string().min(1).max(255),
+  email: z.string().email().transform(v => v.toLowerCase())
+})
 
 export default defineEventHandler(async (event) => {
-  // Require authenticated admin user
   await requireAdmin(event)
 
-  // Validate request body
-  const body = await readValidatedBody(event, createUserSchema.parse)
+  const body = await readBody(event)
+  const validation = createUserSchema.safeParse(body)
+  if (!validation.success) {
+    throw createError({ statusCode: 400, message: 'Invalid name or email' })
+  }
+  const { name, email } = validation.data
 
-  // Check if email already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email: body.email }
-  })
-
-  if (existingUser) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: 'Email already in use'
-    })
+  const config = useRuntimeConfig(event)
+  if (!config.authServiceToken) {
+    throw createError({ statusCode: 502, message: 'Auth service token not configured' })
   }
 
-  // Use provided password or generate a secure one
-  const password = body.password || generatePassword()
-  const passwordHash = await hashPassword(password)
-  const wasGenerated = !body.password
+  let shadow: { id: string, existing: boolean }
+  try {
+    shadow = await $fetch<{ id: string, existing: boolean }>(
+      `${config.public.authBaseURL}/api/users/shadow`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${config.authServiceToken}` },
+        body: { email, name }
+      }
+    )
+  } catch (error) {
+    console.error('[users] shadow-create failed:', error)
+    throw createError({ statusCode: 502, message: 'Could not reach the auth service — try again' })
+  }
 
-  // Create user with default notification preferences
-  const user = await prisma.user.create({
-    data: {
-      name: body.name,
-      email: body.email,
-      role: body.role,
-      passwordHash,
-      notificationChannels: JSON.stringify(['EMAIL']),
-      notificationPreferences: JSON.stringify(['BOOKING_UPDATES'])
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true
-    }
+  const user = await prisma.user.upsert({
+    where: { id: shadow.id },
+    update: { email, name },
+    create: { id: shadow.id, email, name }
   })
 
-  // Get booking count (will be 0 for new users)
-  const bookingCount = 0
-
-  return {
-    ...user,
-    bookingCount,
-    // Return the password if it was auto-generated so it can be copied to clipboard
-    ...(wasGenerated ? { password } : {})
-  }
+  return { id: user.id, email: user.email, name: user.name, existing: shadow.existing }
 })

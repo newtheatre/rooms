@@ -1,163 +1,103 @@
-/**
- * Add User Modal Component
- *
- * Modal for creating new user accounts (admin only).
- *
- * Features:
- * - Form validation with Zod schema
- * - Name, email, and role selection
- * - Creates user via POST /api/users
- * - Toast notifications for success/error
- *
- * @emits refresh - Emitted after successful user creation
- */
 <script setup lang="ts">
-import * as z from 'zod'
+/**
+ * Add User Modal — stage-door integration.
+ *
+ * Creates (or matches) a central shadow account by email via the auth
+ * service and mirrors it locally, so a booking can be attached to someone
+ * who has never logged in. No passwords are generated — the person can
+ * claim the account themselves later. Full identity management lives at
+ * the auth service admin.
+ */
+import { z } from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
-const emit = defineEmits<{
-  refresh: []
-}>()
+const emit = defineEmits<{ refresh: [] }>()
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(255),
-  email: z.string().email('Invalid email'),
-  role: z.enum(['ADMIN', 'STANDARD']),
-  password: z.string().min(8, 'Password must be at least 8 characters').optional()
+  email: z.string().email('Valid email is required')
 })
-
-const open = ref(false)
-const isSubmitting = ref(false)
-const generatedPassword = ref<string | null>(null)
 
 type Schema = z.output<typeof schema>
 
-const state = reactive<Partial<Schema>>({
-  name: undefined,
-  email: undefined,
-  role: 'STANDARD',
-  password: undefined
-})
-
+const open = ref(false)
+const submitting = ref(false)
+const state = reactive<Partial<Schema>>({ name: '', email: '' })
 const toast = useToast()
 
-function generatePassword() {
-  // Generate a random password with uppercase, lowercase, numbers, and symbols
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
-  const password = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-  state.password = password
-  generatedPassword.value = password
-}
-
 async function onSubmit(event: FormSubmitEvent<Schema>) {
-  isSubmitting.value = true
+  submitting.value = true
   try {
-    const response = await $fetch<{ password?: string }>('/api/users', {
-      method: 'POST' as 'GET',
+    const result = await $fetch<{ existing: boolean }>('/api/users', {
+      method: 'POST',
       body: event.data
     })
-
-    // Copy password to clipboard
-    const passwordToCopy = event.data.password || response.password
-    if (passwordToCopy) {
-      await navigator.clipboard.writeText(passwordToCopy)
-    }
-
     toast.add({
-      title: 'User created',
-      description: passwordToCopy
-        ? `${event.data.name} has been added. Password copied to clipboard.`
-        : `${event.data.name} has been added`,
-      icon: 'i-lucide-check',
+      title: result.existing ? 'Existing NNT account linked' : 'User created',
+      description: result.existing
+        ? 'That email already has an NNT account — bookings will attach to it.'
+        : 'They can claim the account later with "forgot password" on the NNT login page.',
       color: 'success'
     })
-
     open.value = false
-    state.name = undefined
-    state.email = undefined
-    state.role = 'STANDARD'
-    state.password = undefined
-    generatedPassword.value = null
-
+    state.name = ''
+    state.email = ''
     emit('refresh')
-  } catch (error: unknown) {
+  } catch (error) {
     const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to create user',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    toast.add({ title: err.data?.message || 'Could not create user', color: 'error' })
   } finally {
-    isSubmitting.value = false
+    submitting.value = false
   }
 }
 </script>
 
 <template>
-  <UModal v-model:open="open" title="New user" description="Add a new user account">
-    <UButton label="New user" icon="i-lucide-plus" />
+  <UModal
+    v-model:open="open"
+    title="Add user"
+    description="Creates an NNT account they can claim later — no passwords to hand out."
+  >
+    <UButton
+      icon="i-lucide-user-round-plus"
+      label="Add user"
+    />
 
     <template #body>
       <UForm
         :schema="schema"
         :state="state"
-        class="space-y-4"
+        class="flex flex-col gap-4"
         @submit="onSubmit"
       >
-        <UFormField label="Name" placeholder="John Doe" name="name">
-          <UInput v-model="state.name" class="w-full" />
-        </UFormField>
-
-        <UFormField label="Email" placeholder="john.doe@example.com" name="email">
-          <UInput v-model="state.email" type="email" class="w-full" />
-        </UFormField>
-
-        <UFormField label="Role" name="role">
-          <USelect
-            v-model="state.role"
-            :items="[
-              { label: 'Standard User', value: 'STANDARD' },
-              { label: 'Administrator', value: 'ADMIN' }
-            ]"
+        <UFormField
+          label="Name"
+          name="name"
+          required
+        >
+          <UInput
+            v-model="state.name"
             class="w-full"
           />
         </UFormField>
-
-        <UFormField label="Password (optional)" name="password">
-          <div class="flex gap-2">
-            <UInput
-              v-model="state.password"
-              type="text"
-              placeholder="Leave blank to auto-generate"
-              class="flex-1"
-            />
-            <UButton
-              label="Generate"
-              icon="i-lucide-refresh-cw"
-              color="neutral"
-              variant="outline"
-              @click="generatePassword"
-            />
-          </div>
-          <template #description>
-            Leave blank to auto-generate a secure password
-          </template>
+        <UFormField
+          label="Email"
+          name="email"
+          required
+        >
+          <UInput
+            v-model="state.email"
+            type="email"
+            class="w-full"
+          />
         </UFormField>
-
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="subtle"
-            @click="open = false"
-          />
-          <UButton
-            label="Create"
-            type="submit"
-            :loading="isSubmitting"
-          />
-        </div>
+        <UButton
+          type="submit"
+          :loading="submitting"
+          class="self-end"
+        >
+          Add user
+        </UButton>
       </UForm>
     </template>
   </UModal>

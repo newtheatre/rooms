@@ -17,19 +17,24 @@ datasource db {
 
 /// User accounts with role-based access and notification preferences
 /// 
-/// Roles:
-/// - STANDARD: Regular users who can create and manage their own bookings
-/// - ADMIN: Administrative users with full system access
-/// 
+/// Thin mirror of the central NNT identity store (stage-door).
+///
+/// Ids equal canonical auth-service ids and are upserted from the shared
+/// session on each authenticated request (ensureLocalUser). Credentials and
+/// roles live in the auth service — the rooms:ADMIN role rides in the
+/// session, never in this table. Notification columns are app data.
+///
 /// Notification Channels: JSON array of enabled channels (e.g., ["EMAIL", "PUSH"])
 /// Notification Preferences: JSON array of subscribed notification types (e.g., ["BOOKING_UPDATES"])
-/// Note: Critical account updates are mandatory and handled separately
 model User {
-  id                      String   @id @default(uuid())
+  id                      String   @id
   email                   String   @unique
   name                    String
-  passwordHash            String   @map("password_hash")
-  role                    Role     @default(STANDARD)
+  /// Derived CACHE of the central rooms:ADMIN role, refreshed from the
+  /// session by ensureLocalUser on every authenticated request — used only
+  /// for notification fan-out. The session/auth service stays authoritative
+  /// for authorisation; never gate access on this column.
+  isRoomsAdmin            Boolean  @default(false) @map("is_rooms_admin")
   notificationChannels    String   @default("[\"EMAIL\"]") @map("notification_channels") // JSON array
   notificationPreferences String   @default("[\"BOOKING_UPDATES\"]") @map("notification_preferences") // JSON array
   createdAt               DateTime @default(now()) @map("created_at")
@@ -176,12 +181,6 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("push_subscriptions")
-}
-
-/// User roles for access control
-enum Role {
-  STANDARD
-  ADMIN
 }
 
 /// Booking lifecycle states

@@ -99,7 +99,7 @@ export default defineEventHandler(async (event) => {
   const db = prisma
 
   // Check if user is admin
-  const isAdmin = user.role === 'ADMIN'
+  const isAdmin = hasRole(user, 'rooms', 'ADMIN')
 
   // Get raw body first to check if it's an admin request
   const rawBody = await readBody(event)
@@ -229,7 +229,7 @@ export default defineEventHandler(async (event) => {
   if (status === 'PENDING') {
     // Fetch all admins who have opted in to new booking notifications
     const allAdmins = await db.user.findMany({
-      where: { role: 'ADMIN' }
+      where: { isRoomsAdmin: true }
     })
 
     // Filter admins who want to receive new booking notifications

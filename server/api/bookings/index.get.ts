@@ -113,7 +113,7 @@ export default defineEventHandler(async (event) => {
   const where: Prisma.BookingWhereInput = {}
 
   // Filter by user if not admin
-  if (user.role !== 'ADMIN') {
+  if (!hasRole(user, 'rooms', 'ADMIN')) {
     where.userId = user.id
   }
 

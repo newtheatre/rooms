@@ -95,7 +95,7 @@ export default defineEventHandler(async (event) => {
   if (campus) where.campus = campus
   if (building) where.building = { contains: building }
 
-  const isAdmin = user.role === 'ADMIN'
+  const isAdmin = hasRole(user, 'rooms', 'ADMIN')
 
   const venues = await prisma.externalVenue.findMany({
     where,

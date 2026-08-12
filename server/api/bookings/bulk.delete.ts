@@ -28,14 +28,8 @@ const bulkDeleteSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  // Require admin session
-  const { user } = await requireUserSession(event)
-  if (user.role !== 'ADMIN') {
-    throw createError({
-      statusCode: 403,
-      message: 'Admin access required'
-    })
-  }
+  // Require admin session (scoped role via the estate session; staleness-checked)
+  await requireAdmin(event)
 
   // Parse and validate body
   const body = await readBody(event)

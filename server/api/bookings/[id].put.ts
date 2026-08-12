@@ -142,7 +142,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Handle updates based on user role
-  if (user.role === 'ADMIN') {
+  if (hasRole(user, 'rooms', 'ADMIN')) {
     // Admin can update booking assignment and status
     const data = await readValidatedBody(event, updateBookingSchema.parse)
 

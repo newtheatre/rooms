@@ -24,7 +24,7 @@
  *
  * Uses nuxt-auth-utils:
  * - requireUserSession(event)
- * - Check user.role === 'ADMIN'
+ * - Check rooms:ADMIN (estate session)
  *
  * @method DELETE
  * @route /api/rooms/[id]

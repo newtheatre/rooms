@@ -28,8 +28,21 @@ const userData = computed(() => ({
 }))
 
 async function logout() {
-  await clear()
-  await router.push('/login')
+  // Logout is estate-wide and owned by the auth service — this app never
+  // clears the shared cookie itself. Same-site form POST carries the cookie
+  // (SameSite=Lax compares site, not origin) and the service bounces back.
+  if (import.meta.dev) {
+    // Dev sessions are local (/dev-login) — clear locally.
+    await clear()
+    await router.push('/')
+    return
+  }
+  const config = useRuntimeConfig()
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = `${config.public.authBaseURL}/logout?redirect=${encodeURIComponent(window.location.origin)}`
+  document.body.appendChild(form)
+  form.submit()
 }
 
 const items = computed<DropdownMenuItem[][]>(() => ([[{

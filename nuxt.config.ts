@@ -8,6 +8,19 @@ export default defineNuxtConfig({
     'nuxt-auth-utils'
   ],
 
+  // Estate SSO (stage-door docs/session-contract.md): this app READS the
+  // nnt-session cookie sealed by auth.newtheatre.org.uk — it never writes it.
+  $production: {
+    runtimeConfig: {
+      session: {
+        name: 'nnt-session',
+        password: '',
+        maxAge: 60 * 60 * 24 * 30,
+        cookie: { domain: '.newtheatre.org.uk', sameSite: 'lax', secure: true }
+      }
+    }
+  },
+
   devtools: {
     enabled: true
   },
@@ -29,11 +42,24 @@ export default defineNuxtConfig({
     }
   },
 
-  routeRules: {
-    '/api/**': {
-      cors: true
+  runtimeConfig: {
+    session: {
+      name: 'nnt-session',
+      password: '', // NUXT_SESSION_PASSWORD — the estate-wide seal secret
+      maxAge: 60 * 60 * 24 * 30
+    },
+    // Service token for server-to-server calls to the auth service
+    // (AUTH_SERVICE_TOKEN worker secret).
+    authServiceToken: '',
+    public: {
+      // The hosted auth service (login/account/refresh). Dev: see /dev-login.
+      authBaseURL: 'https://auth.newtheatre.org.uk'
     }
   },
+
+  // The blanket `cors: true` on /api/** did not survive the stage-door
+  // integration review — same-origin pages don't need it, and the API now
+  // fails closed behind the estate session.
 
   compatibilityDate: '2025-08-10',
 
