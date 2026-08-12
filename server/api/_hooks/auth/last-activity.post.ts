@@ -12,13 +12,16 @@ export default defineEventHandler(async (event) => {
   requireHookAuth(event)
   const { userIds } = await readValidatedBody(event, body => bodySchema.parse(body))
 
-  const latest = await prisma.booking.groupBy({
-    by: ['userId'],
-    where: { userId: { in: userIds } },
-    _max: { createdAt: true }
-  })
-
-  const byUser = new Map(latest.map(row => [row.userId, row._max.createdAt?.getTime() ?? null]))
+  // D1 caps bound parameters at 100 — chunk regardless of caller batch size.
+  const byUser = new Map<string, number | null>()
+  for (let i = 0; i < userIds.length; i += 90) {
+    const latest = await prisma.booking.groupBy({
+      by: ['userId'],
+      where: { userId: { in: userIds.slice(i, i + 90) } },
+      _max: { createdAt: true }
+    })
+    for (const row of latest) byUser.set(row.userId, row._max.createdAt?.getTime() ?? null)
+  }
 
   return Object.fromEntries(userIds.map(id => [id, byUser.get(id) ?? null]))
 })
