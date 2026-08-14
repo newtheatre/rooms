@@ -86,9 +86,8 @@ export default defineNuxtConfig({
             database_id: '820d8e64-108d-4604-a453-d78595a1e1ef'
           }
         ],
-        // Estate-wide secrets live in the account Secrets Store so a rotation
-        // is one write rather than four worker secrets updated in lockstep.
-        // server/plugins/secrets-store.ts turns the binding into
+        // Estate-wide secrets live in the account Secrets Store (stage-door
+        // ADR-0016). server/plugins/0.secrets-store.ts turns the binding into
         // runtimeConfig.session.password — read its header before adding
         // another entry here, the binding name matters.
         //
