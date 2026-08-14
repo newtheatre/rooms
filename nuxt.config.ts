@@ -48,8 +48,10 @@ export default defineNuxtConfig({
       password: '', // NUXT_SESSION_PASSWORD — the estate-wide seal secret
       maxAge: 60 * 60 * 24 * 30
     },
-    // Service token for server-to-server calls to the auth service
-    // (AUTH_SERVICE_TOKEN worker secret).
+    // Server-to-server calls to the auth service and the inbound GDPR hook
+    // bearer. Worker secret NUXT_AUTH_SERVICE_TOKEN — the NUXT_ prefix is
+    // load-bearing, since Nuxt only maps NUXT_* env onto runtimeConfig. A
+    // secret named AUTH_SERVICE_TOKEN is silently ignored.
     authServiceToken: '',
     public: {
       // The hosted auth service (login/account/refresh). Dev: see /dev-login.

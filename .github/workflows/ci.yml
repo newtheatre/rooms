@@ -1,0 +1,30 @@
+# Lint + build on every push and PR. Deployment is NOT here — Cloudflare's
+# Workers Builds git integration deploys main on its own.
+#
+# `bun run typecheck` is deliberately absent: it does not currently pass on
+# main (see README §Known gaps). Add it here in the same PR that fixes it.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build
+        run: bun run build

@@ -5,7 +5,7 @@
  */
 
 import type { User, Booking } from '@prisma/client'
-import resend from './resend'
+import { getResend } from './resend'
 
 export type NotificationChannel = 'EMAIL' | 'PUSH'
 
@@ -73,6 +73,9 @@ export async function sendEmail(user: User, subject: string, content: string): P
 
   if (process.env.NODE_ENV === 'development') return
 
+  const resend = getResend()
+  if (!resend) return
+
   const { error } = await resend.emails.send({
     from: `"Room Bookings" <${process.env.EMAIL}>`,
     replyTo: `"Theatre Manager" <theatremanager@newtheatre.org.uk>`,
@@ -99,6 +102,9 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
   console.log(`[BATCH EMAIL] To: ${emailAddresses.length} recipients, Subject: ${subject}`)
 
   if (process.env.NODE_ENV === 'development') return
+
+  const resend = getResend()
+  if (!resend) return
 
   const { error } = await resend.emails.send({
     from: `"Room Bookings" <${process.env.EMAIL}>`,
