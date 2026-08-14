@@ -1,12 +1,6 @@
 /**
- * POST /api/bookings — create a booking request. Any signed-in user.
- *
- * An admin may additionally set `userId` (book on behalf of someone),
- * `roomId`/`externalVenueId` (assign a space) and `status`.
- *
- * `recurringPattern` expands to one booking row per occurrence, each checked for
- * availability. Admins are notified of anything left PENDING; the notification is
- * one batched email, not one per admin (see server/utils/notifications.ts).
+ * Create a booking request. Admins may also set userId, a space and a status —
+ * docs/api-reference.md#post-apibookings
  */
 import prisma from '~~/server/database'
 import { notifyBookingUpdate, getNotificationPreferences, sendBatchEmail, formatBookingDateTime } from '~~/server/utils/notifications'

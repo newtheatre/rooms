@@ -1,11 +1,6 @@
 /**
- * PUT /api/bookings/bulk — update many bookings in one request. Admin only.
- *
- * Body: `{ updates: Array<{ id, data }> }`, where `data` is the same shape
- * PUT /api/bookings/:id accepts from an admin.
- *
- * Notifications are grouped by user, so someone whose five bookings all move
- * gets one email rather than five.
+ * Update many bookings at once. Admin only. Notifications are grouped by user,
+ * so five moved bookings send one email.
  */
 import prisma from '~~/server/database'
 import { notifyBulkBookingUpdates, formatBookingDateTime } from '~~/server/utils/notifications'

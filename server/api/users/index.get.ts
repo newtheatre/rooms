@@ -1,8 +1,5 @@
 /**
- * GET /api/users — list local user mirrors. Admin only.
- *
- * Identity lives in the central auth service; this is the app-side mirror, for
- * attaching a booking to someone. `search` matches name and email.
+ * List local user mirrors. Admin only. `search` matches name and email.
  */
 import prisma from '~~/server/database'
 import type { Prisma } from '@prisma/client'

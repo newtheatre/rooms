@@ -90,10 +90,8 @@ export async function sendEmail(user: User, subject: string, content: string): P
 }
 
 /**
- * Sends one email to many recipients. No-op in development.
- *
  * Recipients go in `bcc` so they are not disclosed to each other; Resend still
- * requires a `to`, which is the sending address itself.
+ * requires a `to`, which is the sending address.
  */
 export async function sendBatchEmail(users: User[], subject: string, content: string): Promise<void> {
   if (users.length === 0) return
@@ -121,10 +119,8 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
 }
 
 /**
- * NOT IMPLEMENTED — logs and returns. Selecting the PUSH channel therefore
- * delivers nothing.
- *
- * TODO: send via Web Push Protocol to the subscriptions in push_subscriptions.
+ * NOT IMPLEMENTED — logs and returns, so the PUSH channel delivers nothing.
+ * TODO: send via Web Push Protocol to push_subscriptions.
  */
 export async function sendPushNotification(
   userId: string,

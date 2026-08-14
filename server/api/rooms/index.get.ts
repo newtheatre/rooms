@@ -1,9 +1,6 @@
 /**
- * GET /api/rooms — list internal rooms.
- *
- * Admins get every column plus booking counts and may pass
- * `includeInactive=true`; everyone else gets the public fields for active rooms
- * only.
+ * List internal rooms. Admins get every column plus booking counts and may ask
+ * for inactive ones.
  */
 
 import prisma from '~~/server/database'

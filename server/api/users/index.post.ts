@@ -1,19 +1,6 @@
 /**
- * POST /api/users
- *
- * Create a user to attach a booking to (admin only).
- *
- * Identity lives in the central auth service — this endpoint asks it for a
- * shadow account (match-or-create by email, service-token authenticated)
- * and mirrors the result locally. No passwords are generated or returned;
- * the person can claim the account later via the auth service. Full account
- * management happens at auth.newtheatre.org.uk/admin.
- *
- * Request body:
- * - name: string (1-255 chars)
- * - email: string (valid email)
- *
- * Returns: the mirrored user { id, email, name, existing }
+ * Create a user to attach a booking to. Admin only.
+ * Asks the auth service for a shadow account and mirrors the canonical id.
  */
 import prisma from '~~/server/database'
 import { z } from 'zod'

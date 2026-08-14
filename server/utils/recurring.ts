@@ -1,8 +1,6 @@
 /**
- * Expanding a recurrence pattern into the individual bookings it means.
- *
- * Every occurrence becomes its own row: they are approved, moved and cancelled
- * one at a time, so there is no series entity to keep in step.
+ * Expands a recurrence pattern into individual booking rows. There is no
+ * series entity — occurrences are handled one at a time.
  */
 
 import type { RecurringPattern, Booking } from '@prisma/client'

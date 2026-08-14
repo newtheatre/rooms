@@ -1,8 +1,6 @@
 /**
- * Booking conflict detection for rooms and external venues.
- *
- * A space is occupied by bookings in CONFIRMED, PENDING or AWAITING_EXTERNAL —
- * a pending request holds the slot so two people cannot both be told yes.
+ * Booking conflict detection. A space is occupied by CONFIRMED, PENDING and
+ * AWAITING_EXTERNAL — docs/data-model.md#occupancy
  */
 
 import type { Booking, Room, ExternalVenue } from '@prisma/client'

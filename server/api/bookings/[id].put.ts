@@ -1,12 +1,6 @@
 /**
- * PUT /api/bookings/:id — update a booking. What may change depends on who is
- * asking, and the two bodies are validated against different schemas:
- *
- * - ADMIN: roomId, externalVenueId, status, rejectionReason.
- * - Owner, PENDING only: eventTitle, numberOfAttendees, startTime, endTime, notes.
- *
- * A status change made by an admin notifies the owner, subject to their
- * preferences.
+ * Update a booking. Admin and owner send different bodies, validated against
+ * different schemas — docs/api-reference.md#put-apibookingsid
  */
 import prisma from '~~/server/database'
 import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'

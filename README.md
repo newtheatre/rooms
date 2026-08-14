@@ -93,8 +93,20 @@ Recorded here rather than left to be discovered:
 - **Web push is not implemented.** `/api/notifications/subscribe` records a subscription and the
   settings page offers the PUSH channel, but `sendPushNotification` logs and returns
   (`server/utils/notifications.ts`). Selecting PUSH delivers nothing.
-- **No `docs/` and no ADRs.** The user-facing guides in `content/docs/` are published to the site
-  and are not engineering documentation.
+- **No ADRs.** `docs/` now carries the data model and API reference, but there is no decision
+  record anywhere for choices specific to this app. Estate-wide decisions live in stage-door's
+  `docs/decisions/`.
+
+Note that `content/docs/` is **user-facing** guidance published to the site. Engineering
+documentation lives in [`docs/`](docs/).
+
+## Documentation
+
+| Doc | Read it when… |
+| --- | --- |
+| [docs/data-model.md](docs/data-model.md) | you're changing the schema, or need the booking status lifecycle |
+| [docs/api-reference.md](docs/api-reference.md) | you're calling or changing an endpoint |
+| stage-door `docs/integrating-an-app.md` | you're touching anything to do with sessions, roles or the GDPR hooks |
 
 ## Comments
 

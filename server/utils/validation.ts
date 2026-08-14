@@ -2,87 +2,18 @@
 
 import { z } from 'zod'
 
-/**
- * Email validation schema
- */
-export const emailSchema = z.email('Invalid email address')
+// Credential schemas (register, login, password, profile) were deleted at the
+// stage-door cutover: this app must never handle credentials.
 
-/**
- * Password validation schema
- *
- * Requirements:
- * - Minimum 8 characters
- * - At least one uppercase letter
- * - At least one lowercase letter
- * - At least one number
- */
-export const passwordSchema = z.string()
-  .min(8, 'Password must be at least 8 characters')
-  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-  .regex(/[0-9]/, 'Password must contain at least one number')
-
-/**
- * User registration schema
- */
-export const registerSchema = z.object({
-  email: emailSchema,
-  name: z.string().min(1, 'Name is required').max(255),
-  password: passwordSchema
-})
-
-/**
- * User login schema
- */
-export const loginSchema = z.object({
-  email: emailSchema,
-  password: z.string().min(1, 'Password is required')
-})
-
-/**
- * Notification channel schema
- */
 export const notificationChannelSchema = z.enum(['EMAIL', 'PUSH'])
 
-/**
- * Notification preference schema
- */
 export const notificationPreferenceSchema = z.enum(['BOOKING_UPDATES', 'ADMIN_NEW_BOOKINGS'])
 
-/**
- * User preferences update schema
- */
 export const updatePreferencesSchema = z.object({
   notificationChannels: z.array(notificationChannelSchema).optional(),
   notificationPreferences: z.array(notificationPreferenceSchema).optional()
 })
 
-/**
- * Update profile schema
- */
-export const updateProfileSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255).optional(),
-  email: emailSchema.optional()
-})
-
-/**
- * Change password schema
- */
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: passwordSchema
-})
-
-/**
- * Reset password schema
- */
-export const resetPasswordSchema = z.object({
-  password: passwordSchema
-})
-
-/**
- * Booking status schema
- */
 export const bookingStatusSchema = z.enum([
   'PENDING',
   'CONFIRMED',
@@ -91,19 +22,10 @@ export const bookingStatusSchema = z.enum([
   'CANCELLED'
 ])
 
-/**
- * Recurrence frequency schema
- */
 export const recurrenceFrequencySchema = z.enum(['DAILY', 'WEEKLY', 'CUSTOM'])
 
-/**
- * Days of week schema
- */
 export const dayOfWeekSchema = z.enum(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'])
 
-/**
- * Recurring pattern schema
- */
 export const recurringPatternSchema = z.object({
   frequency: recurrenceFrequencySchema,
   interval: z.number().int().min(1).max(365).optional().default(1),
@@ -124,9 +46,6 @@ export const recurringPatternSchema = z.object({
   }
 )
 
-/**
- * Create booking schema
- */
 export const createBookingSchema = z.object({
   eventTitle: z.string().min(1, 'Event title is required').max(255),
   numberOfAttendees: z.number().int().positive().optional(),
@@ -218,9 +137,6 @@ export const updateBookingSchema = z.object({
   }
 )
 
-/**
- * Create room schema
- */
 export const createRoomSchema = z.object({
   name: z.string().min(1, 'Room name is required').max(255),
   description: z.string().max(1000).optional(),
@@ -228,9 +144,6 @@ export const createRoomSchema = z.object({
   isActive: z.boolean().default(true)
 })
 
-/**
- * Create external venue schema
- */
 export const createVenueSchema = z.object({
   campus: z.string().max(255).optional(),
   building: z.string().min(1, 'Building is required').max(255),
@@ -238,9 +151,6 @@ export const createVenueSchema = z.object({
   contactDetails: z.string().max(500).optional()
 })
 
-/**
- * Push subscription schema
- */
 export const pushSubscriptionSchema = z.object({
   endpoint: z.url('Invalid endpoint URL'),
   keys: z.object({
@@ -249,9 +159,6 @@ export const pushSubscriptionSchema = z.object({
   })
 })
 
-/**
- * Push unsubscribe schema
- */
 export const pushUnsubscribeSchema = z.object({
   endpoint: z.url('Invalid endpoint URL')
 })

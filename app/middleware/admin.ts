@@ -1,12 +1,6 @@
 /**
- * Admin authorisation middleware — stage-door integration.
- *
- * Requires the estate session plus the scoped `rooms:ADMIN` role. Roles
- * ride in the sealed cookie, so before honouring one on a privileged
- * surface the session must be fresh (≤15 min since the auth service last
- * re-read the DB — session contract §rules). Stale sessions bounce through
- * the auth service's refresh endpoint, which re-seals with current roles
- * and rejects revoked/disabled users.
+ * Estate session plus `rooms:ADMIN`, and the session must be fresh — stale
+ * roles bounce through the auth service's refresh endpoint.
  */
 export default defineNuxtRouteMiddleware((to) => {
   const { loggedIn, user, session } = useUserSession()

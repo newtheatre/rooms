@@ -1,10 +1,6 @@
 /**
- * DEV ONLY — the single sanctioned exception to "apps never write the
- * session" (stage-door docs/development.md §localhost-cookie-story).
- *
- * Local development without the auth service running: GET /dev-login seals
- * a session for a fake user. Guarded by import.meta.dev — this route does
- * not exist in production builds. `?admin=1` grants rooms:ADMIN.
+ * DEV ONLY — the one sanctioned exception to "apps never write the session".
+ * `?admin=1` grants rooms:ADMIN. Guarded by import.meta.dev.
  */
 export default defineEventHandler(async (event) => {
   if (!import.meta.dev) {

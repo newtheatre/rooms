@@ -1,10 +1,7 @@
 import type { CalendarDate } from '@internationalized/date'
 
 /**
- * Combines a CalendarDate and time string (HH:MM) into an ISO datetime string
- * @param date CalendarDate from @internationalized/date
- * @param time Time string in HH:MM format
- * @returns ISO 8601 datetime string
+ * Combine a CalendarDate and an HH:MM string into an ISO datetime.
  */
 export function combineDateAndTime(date: CalendarDate, time: string): string {
   const [hour, minute] = time.split(':').map(Number)

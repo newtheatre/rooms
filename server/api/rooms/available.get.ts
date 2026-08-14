@@ -1,8 +1,6 @@
 /**
- * GET /api/rooms/available — which rooms are free for a time range.
- *
- * Required: `startTime`, `endTime` (ISO 8601). `excludeBookingId` omits a
- * booking's own rows so editing it does not report a conflict with itself.
+ * Which rooms are free for a time range. `excludeBookingId` omits a booking's
+ * own rows so editing it does not conflict with itself.
  */
 
 import { getAvailableRooms } from '~~/server/utils/availability'

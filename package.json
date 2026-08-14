@@ -8,6 +8,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
+    "check:comments": "node scripts/check-comments.mjs",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {

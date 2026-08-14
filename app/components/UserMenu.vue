@@ -1,9 +1,6 @@
 <script setup lang="ts">
 /**
- * UserMenu Component
- *
- * User account menu in the sidebar footer.
- * Shows user info, settings, theme controls, and logout.
+ * Account menu in the sidebar footer.
  */
 import type { DropdownMenuItem } from '@nuxt/ui'
 
@@ -28,9 +25,8 @@ const userData = computed(() => ({
 }))
 
 async function logout() {
-  // Logout is estate-wide and owned by the auth service — this app never
-  // clears the shared cookie itself. Same-site form POST carries the cookie
-  // (SameSite=Lax compares site, not origin) and the service bounces back.
+  // Logout is estate-wide and owned by the auth service; this app never clears
+  // the shared cookie itself.
   if (import.meta.dev) {
     // Dev sessions are local (/dev-login) — clear locally.
     await clear()

@@ -1,8 +1,6 @@
 /**
- * DELETE /api/venues/:id — permanently remove an external venue. Admin only.
- *
- * Refused while any booking references it; unlike rooms there is no deactivated
- * state, so the bookings must be reassigned or cancelled first.
+ * Permanently remove an external venue. Refused while any booking references
+ * it — there is no deactivated state, unlike rooms.
  */
 
 import prisma from '~~/server/database'

@@ -1,10 +1,6 @@
 /**
- * Admin: booking requests, pending first.
- *
- * The status flow a request can be moved through from here:
- * PENDING -> CONFIRMED (assign an internal room)
- *         -> AWAITING_EXTERNAL -> CONFIRMED (external venue)
- *         -> REJECTED (reason required)
+ * Admin: booking requests, pending first. Status flow:
+ * docs/data-model.md#status-lifecycle
  */
 
 <script setup lang="ts">

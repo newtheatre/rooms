@@ -1,9 +1,6 @@
 /**
- * POST /api/notifications/subscribe — register a Web Push subscription for the
- * caller. Keyed on `endpoint`, which is unique.
- *
- * Note that nothing sends to these yet: sendPushNotification is a stub (see
- * server/utils/notifications.ts).
+ * Register a Web Push subscription, keyed on the unique endpoint.
+ * Nothing sends to these: sendPushNotification is a stub.
  */
 import prisma from '~~/server/database'
 

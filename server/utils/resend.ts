@@ -3,12 +3,8 @@ import { Resend } from 'resend'
 let client: Resend | null | undefined
 
 /**
- * Lazily construct the Resend client, matching Proscenium's
- * server/utils/resend.ts.
- *
- * Returns null rather than throwing when no key is configured, so a missing
- * key degrades email to a no-op instead of taking the whole Worker down at
- * import time — which also meant the app could not be built without a secret.
+ * Returns null rather than throwing when no key is set, so email degrades to a
+ * no-op instead of failing the build and the Worker.
  */
 export function getResend(): Resend | null {
   if (client !== undefined) return client

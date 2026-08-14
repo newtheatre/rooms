@@ -48,20 +48,14 @@ export default defineNuxtConfig({
       password: '', // NUXT_SESSION_PASSWORD — the estate-wide seal secret
       maxAge: 60 * 60 * 24 * 30
     },
-    // Server-to-server calls to the auth service and the inbound GDPR hook
-    // bearer. Worker secret NUXT_AUTH_SERVICE_TOKEN — the NUXT_ prefix is
-    // load-bearing, since Nuxt only maps NUXT_* env onto runtimeConfig. A
-    // secret named AUTH_SERVICE_TOKEN is silently ignored.
+    // Worker secret NUXT_AUTH_SERVICE_TOKEN. The NUXT_ prefix is load-bearing —
+    // a secret named AUTH_SERVICE_TOKEN is silently ignored.
     authServiceToken: '',
     public: {
       // The hosted auth service (login/account/refresh). Dev: see /dev-login.
       authBaseURL: 'https://auth.newtheatre.org.uk'
     }
   },
-
-  // The blanket `cors: true` on /api/** did not survive the stage-door
-  // integration review — same-origin pages don't need it, and the API now
-  // fails closed behind the estate session.
 
   compatibilityDate: '2025-08-10',
 
@@ -88,14 +82,8 @@ export default defineNuxtConfig({
             database_id: '820d8e64-108d-4604-a453-d78595a1e1ef'
           }
         ],
-        // Estate-wide secrets live in the account Secrets Store (stage-door
-        // ADR-0016). server/plugins/0.secrets-store.ts turns the binding into
-        // runtimeConfig.session.password — read its header before adding
-        // another entry here, the binding name matters.
-        //
-        // Cast: `secrets_store_secrets` is valid wrangler config but missing
-        // from the wrangler types Nitro 2.13 bundles. Drop it once Nitro
-        // catches up.
+        // Estate secrets come from the Secrets Store (stage-door ADR-0016); the
+        // binding name matters — read server/plugins/0.secrets-store.ts first.
         ...({
           secrets_store_secrets: [
             {

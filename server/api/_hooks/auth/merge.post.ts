@@ -8,18 +8,8 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/_hooks/auth/merge — account merge, this app's share (stage-door
- * ADR-0015). Idempotent.
- *
- * Re-points bookings and push subscriptions onto the winner, then deletes the
- * losing mirror row. `dryRun: true` returns the counts without writing, which
- * stage-door shows in its pre-merge report.
- *
- * Each statement binds two parameters however many rows move, so the D1
- * 100-parameter cap does not apply — no chunking, unlike last-activity.
- *
- * The winner's own mirror columns (notification preferences, isRoomsAdmin) are
- * untouched; isRoomsAdmin self-heals from the session anyway.
+ * Account merge, this app's share (stage-door ADR-0015). Idempotent.
+ * Behaviour: docs/api-reference.md#inbound-gdpr-hooks
  */
 export default defineEventHandler(async (event) => {
   requireHookAuth(event)
@@ -40,9 +30,8 @@ export default defineEventHandler(async (event) => {
     return { ok: true, notMirrored: !loser, counts }
   }
 
-  // The winner needs a mirror row before rows point at it. A minimal one
-  // is fine — ensureLocalUser overwrites it with the canonical identity
-  // on the winner's next session.
+  // The winner needs a mirror row before rows point at it; ensureLocalUser
+  // replaces this placeholder on their next session.
   await prisma.$transaction([
     prisma.user.upsert({
       where: { id: toUserId },

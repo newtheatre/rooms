@@ -1,9 +1,6 @@
 /**
- * DELETE /api/rooms/:id — deactivate a room, or with `permanent=true` remove it.
- * Admin only.
- *
- * Permanent deletion is refused once the room has bookings; deactivating keeps
- * the booking history readable, which is why it is the default.
+ * Deactivate a room, or remove it with `permanent=true`. Permanent deletion is
+ * refused once the room has bookings.
  */
 
 import prisma from '~~/server/database'

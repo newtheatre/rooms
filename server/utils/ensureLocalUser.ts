@@ -1,11 +1,6 @@
 /**
- * Mirror upsert (stage-door docs/integrating-an-app.md §mirror).
- *
- * Bookings FK a local `users` row; identity lives centrally. On each
- * authenticated request the session user is upserted into the local mirror
- * (idempotent primary-key upsert — migration made local ids canonical).
- * Notification preference columns are app data and keep their defaults on
- * first insert.
+ * Upserts the session user into the local mirror, which bookings FK against.
+ * Notification columns are app data and keep their defaults.
  */
 
 import type { User } from '#auth-utils'

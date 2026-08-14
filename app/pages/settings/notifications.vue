@@ -1,7 +1,6 @@
 /**
- * Notification preferences. Account-security mail is always sent and is not
- * listed here. The PUSH channel is not implemented — see
- * server/utils/notifications.ts.
+ * Account-security mail is always sent and is not listed here. PUSH delivers
+ * nothing — see server/utils/notifications.ts.
  */
 
 <script setup lang="ts">

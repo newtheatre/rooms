@@ -1,8 +1,6 @@
 /**
- * GET /api/bookings — list bookings. Admins see all; a STANDARD user sees only
- * their own, scoped server-side rather than by a query parameter.
- *
- * Filters: status, startDate, endDate, roomId.
+ * List bookings. Admins see all; a standard user sees only their own, scoped
+ * server-side rather than by a query parameter.
  */
 import prisma from '~~/server/database'
 import type { Prisma } from '@prisma/client'
