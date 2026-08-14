@@ -14,7 +14,13 @@ export default defineEventHandler(async (event) => {
   const { admin } = getQuery(event)
   const now = Date.now()
 
-  await setUserSession(event, {
+  // replaceUserSession, NOT setUserSession: the latter merges into whatever
+  // session already exists, and defu concatenates arrays — so signing in as
+  // a plain user on top of an admin session swapped the id to dev-user while
+  // keeping `roles: ['rooms:ADMIN']`. Local authorisation testing then ran
+  // with more authority than asked for, which is the failure mode that makes
+  // a broken permission check look like a working one.
+  await replaceUserSession(event, {
     user: {
       id: `dev-${admin ? 'admin' : 'user'}`,
       email: `dev-${admin ? 'admin' : 'user'}@rooms.test`,
