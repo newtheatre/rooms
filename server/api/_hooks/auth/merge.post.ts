@@ -8,21 +8,18 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/_hooks/auth/merge — account merge, this app's share
- * (stage-door ADR-0015). Re-points bookings and push subscriptions from
- * the losing account onto the winner, then deletes the losing mirror row
- * (its unique email is freed; the winner's row carries the history now).
- * The losing central identity is erased by stage-door afterwards.
+ * POST /api/_hooks/auth/merge — account merge, this app's share (stage-door
+ * ADR-0015). Idempotent.
  *
- * `dryRun: true` returns the affected-row counts without writing —
- * stage-door shows them in its pre-merge report. Idempotent: a re-run
- * re-points whatever is left (possibly nothing). Each statement binds
- * two parameters however many rows move, so the D1 100-bound-parameter
- * cap never applies here — no chunking, unlike last-activity.
+ * Re-points bookings and push subscriptions onto the winner, then deletes the
+ * losing mirror row. `dryRun: true` returns the counts without writing, which
+ * stage-door shows in its pre-merge report.
  *
- * The winner's own mirror columns (notification preferences,
- * isRoomsAdmin) are untouched: they're the winner's settings, and
- * isRoomsAdmin self-heals from the session anyway.
+ * Each statement binds two parameters however many rows move, so the D1
+ * 100-parameter cap does not apply — no chunking, unlike last-activity.
+ *
+ * The winner's own mirror columns (notification preferences, isRoomsAdmin) are
+ * untouched; isRoomsAdmin self-heals from the session anyway.
  */
 export default defineEventHandler(async (event) => {
   requireHookAuth(event)
