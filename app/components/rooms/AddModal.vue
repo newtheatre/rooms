@@ -1,16 +1,3 @@
-/**
- * Add Room Modal Component
- *
- * Modal for creating new rooms (admin only).
- *
- * Features:
- * - Form validation with Zod schema
- * - Name, description, capacity, and active status
- * - Creates room via POST /api/rooms
- * - Toast notifications for success/error
- *
- * @emits refresh - Emitted after successful room creation
- */
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'

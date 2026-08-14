@@ -1,38 +1,5 @@
 /**
- * Update External Venue Endpoint
- *
- * Updates an external venue record.
- * Admin-only endpoint.
- *
- * Request Body (all optional):
- * - campus?: string
- * - building?: string
- * - roomName?: string
- * - contactDetails?: string
- *
- * Process:
- * 1. Require admin authentication
- * 2. Parse venue ID from route params
- * 3. Validate request body
- * 4. Fetch existing venue
- * 5. Update venue in database
- * 6. Return updated venue
- *
- * Response:
- * - 200: Updated venue object
- * - 400: Validation error
- * - 401: Not authenticated
- * - 403: Not admin
- * - 404: Venue not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method PUT
- * @route /api/venues/[id]
- * @authenticated
- * @admin-only
+ * PUT /api/venues/:id — update an external venue. Admin only. Partial body.
  */
 
 import { createVenueSchema } from '../../utils/validation'

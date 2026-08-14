@@ -1,18 +1,8 @@
 /**
- * Delete Rooms Modal Component
- *
- * Modal for permanently deleting selected room(s) with confirmation.
- *
- * Features:
- * - Bulk delete support (permanent deletion)
- * - Warning about permanent deletion
- * - Prevents deletion of rooms with bookings
- * - Toast notifications for success/error
- *
- * @props count - Number of rooms selected for deletion
- * @props rooms - Array of room objects to delete
- * @emits refresh - Emitted after successful deletion
+ * Permanent deletion. The API refuses a room that has bookings — deactivate it
+ * instead to keep the booking history readable.
  */
+
 <script setup lang="ts">
 interface Room {
   id: number

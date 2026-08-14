@@ -1,27 +1,6 @@
 /**
- * Get User Preferences Endpoint
- *
- * Retrieves the current user's notification preferences.
- *
- * Process:
- * 1. Get authenticated user from session
- * 2. Fetch user record from database
- * 3. Parse JSON notification fields
- * 4. Return preferences
- *
- * Response:
- * - 200: {
- *     notificationChannels: ["EMAIL", "PUSH"],
- *     notificationPreferences: ["BOOKING_UPDATES"]
- *   }
- * - 401: Not authenticated
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method GET
- * @route /api/account/preferences
- * @authenticated
+ * GET /api/account/preferences — the caller's notification channels and types.
+ * Both are stored as JSON strings and parsed here.
  */
 import prisma from '~~/server/database'
 

@@ -1,34 +1,9 @@
 /**
- * Subscribe to Push Notifications Endpoint
+ * POST /api/notifications/subscribe — register a Web Push subscription for the
+ * caller. Keyed on `endpoint`, which is unique.
  *
- * Registers a new web push notification subscription for the current user.
- *
- * Request Body:
- * - endpoint: string (push service URL)
- * - keys: {
- *     p256dh: string,
- *     auth: string
- *   }
- *
- * Process:
- * 1. Get authenticated user from session
- * 2. Validate request body with pushSubscriptionSchema
- * 3. Check if subscription already exists (by endpoint)
- * 4. Create push subscription record in database
- * 5. Return subscription confirmation
- *
- * Response:
- * - 201: { id, endpoint }
- * - 400: Validation error
- * - 401: Not authenticated
- * - 409: Subscription already exists
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method POST
- * @route /api/notifications/subscribe
- * @authenticated
+ * Note that nothing sends to these yet: sendPushNotification is a stub (see
+ * server/utils/notifications.ts).
  */
 import prisma from '~~/server/database'
 

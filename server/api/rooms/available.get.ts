@@ -1,30 +1,8 @@
 /**
- * Check Room Availability Endpoint
+ * GET /api/rooms/available — which rooms are free for a time range.
  *
- * Retrieves available and unavailable rooms for a given time range.
- * Useful for showing real-time availability when creating/editing bookings.
- *
- * Query Parameters:
- * - startTime: ISO 8601 datetime (required)
- * - endTime: ISO 8601 datetime (required)
- * - excludeBookingId: number (optional - for editing existing bookings)
- * - includeInactive: boolean (default: false, admin only)
- * - includeUnavailable: boolean (default: false - whether to include unavailable rooms in response)
- *
- * Process:
- * 1. Require authentication
- * 2. Validate time parameters
- * 3. Check each room for conflicts
- * 4. Return categorized results
- *
- * Response:
- * - 200: Object with available and unavailable rooms
- * - 400: Invalid parameters
- * - 401: Not authenticated
- *
- * @method GET
- * @route /api/rooms/available
- * @authenticated
+ * Required: `startTime`, `endTime` (ISO 8601). `excludeBookingId` omits a
+ * booking's own rows so editing it does not report a conflict with itself.
  */
 
 import { getAvailableRooms } from '~~/server/utils/availability'

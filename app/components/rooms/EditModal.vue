@@ -1,16 +1,3 @@
-/**
- * Edit Room Modal Component
- *
- * Modal for editing room details (admin only).
- *
- * Features:
- * - Edit name, description, capacity, and active status
- * - Form validation with Zod schema
- * - Toast notifications for success/error
- *
- * @props room - Room object to edit
- * @emits refresh - Emitted after successful update
- */
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'

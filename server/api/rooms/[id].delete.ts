@@ -1,35 +1,9 @@
 /**
- * Delete Room Endpoint
+ * DELETE /api/rooms/:id — deactivate a room, or with `permanent=true` remove it.
+ * Admin only.
  *
- * Deletes a room permanently or soft-deletes by setting isActive to false.
- * Admin-only endpoint.
- *
- * Query Parameters:
- * - permanent?: boolean (default: false, permanently delete the room)
- *
- * Process:
- * 1. Require admin authentication
- * 2. Parse room ID from route params
- * 3. Check query param for permanent deletion
- * 4. Fetch room from database
- * 5. Either hard delete or set isActive to false
- * 6. Return success message
- *
- * Response:
- * - 200: { message: "Room deleted/deactivated successfully" }
- * - 400: Invalid room ID or room has bookings (for permanent delete)
- * - 401: Not authenticated
- * - 403: Not admin
- * - 404: Room not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method DELETE
- * @route /api/rooms/[id]
- * @authenticated
- * @admin-only
+ * Permanent deletion is refused once the room has bookings; deactivating keeps
+ * the booking history readable, which is why it is the default.
  */
 
 import prisma from '~~/server/database'

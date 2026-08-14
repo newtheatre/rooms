@@ -1,11 +1,4 @@
-/**
- * Validation Utilities
- *
- * Provides validation schemas and helper functions for API request validation
- * using Zod.
- *
- * @module server/utils/validation
- */
+/** Zod schemas for request bodies and query strings. */
 
 import { z } from 'zod'
 

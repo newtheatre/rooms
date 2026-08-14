@@ -1,38 +1,5 @@
 /**
- * Update Room Endpoint
- *
- * Updates an internal rehearsal room.
- * Admin-only endpoint.
- *
- * Request Body (all optional):
- * - name?: string
- * - description?: string
- * - capacity?: number
- * - isActive?: boolean
- *
- * Process:
- * 1. Require admin authentication
- * 2. Parse room ID from route params
- * 3. Validate request body
- * 4. Fetch existing room
- * 5. Update room in database
- * 6. Return updated room
- *
- * Response:
- * - 200: Updated room object
- * - 400: Validation error
- * - 401: Not authenticated
- * - 403: Not admin
- * - 404: Room not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method PUT
- * @route /api/rooms/[id]
- * @authenticated
- * @admin-only
+ * PUT /api/rooms/:id — update an internal room. Admin only. Partial body.
  */
 
 import prisma from '~~/server/database'

@@ -1,18 +1,7 @@
 /**
- * Delete Venues Modal Component
- *
- * Modal for permanently deleting selected venue(s) with confirmation.
- *
- * Features:
- * - Bulk delete support (permanent deletion)
- * - Warning about permanent deletion
- * - Prevents deletion of venues with bookings
- * - Toast notifications for success/error
- *
- * @props count - Number of venues selected for deletion
- * @props venues - Array of venue objects to delete
- * @emits refresh - Emitted after successful deletion
+ * Permanent deletion. The API refuses a venue that has bookings.
  */
+
 <script setup lang="ts">
 interface Venue {
   id: number

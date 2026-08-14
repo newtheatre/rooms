@@ -1,10 +1,8 @@
 /**
- * Recurring Booking Utilities
+ * Expanding a recurrence pattern into the individual bookings it means.
  *
- * Provides functions for generating, validating, and managing
- * recurring booking patterns.
- *
- * @module server/utils/recurring
+ * Every occurrence becomes its own row: they are approved, moved and cancelled
+ * one at a time, so there is no series entity to keep in step.
  */
 
 import type { RecurringPattern, Booking } from '@prisma/client'

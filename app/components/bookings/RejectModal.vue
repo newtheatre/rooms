@@ -1,11 +1,7 @@
 /**
- * Reject Booking Modal
- *
- * Modal for rejecting booking requests with a required reason.
- *
- * @props booking - Booking object to reject
- * @emits refresh - Emitted after successful rejection
+ * Rejecting a booking requires a reason; it is shown to the requester.
  */
+
 <script setup lang="ts">
 interface Booking {
   id: number

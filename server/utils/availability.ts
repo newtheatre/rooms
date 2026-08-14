@@ -1,19 +1,14 @@
 /**
- * Room and Venue Availability Utilities
+ * Booking conflict detection for rooms and external venues.
  *
- * Provides functions for checking room and venue availability,
- * detecting booking conflicts, and filtering available options.
- *
- * @module server/utils/availability
+ * A space is occupied by bookings in CONFIRMED, PENDING or AWAITING_EXTERNAL —
+ * a pending request holds the slot so two people cannot both be told yes.
  */
 
 import type { Booking, Room, ExternalVenue } from '@prisma/client'
 import prisma from '~~/server/database'
 
-/**
- * Check if two time ranges overlap
- * Two bookings overlap if: (StartA < EndB) AND (EndA > StartB)
- */
+/** Half-open intervals: touching end-to-start is not an overlap. */
 export function hasTimeOverlap(
   start1: Date,
   end1: Date,
@@ -23,15 +18,7 @@ export function hasTimeOverlap(
   return start1 < end2 && end1 > start2
 }
 
-/**
- * Check availability for a specific room
- *
- * @param roomId - The room ID to check
- * @param startTime - Start time of the requested booking
- * @param endTime - End time of the requested booking
- * @param excludeBookingId - Optional booking ID to exclude (for editing)
- * @returns Object with availability status and any conflicts
- */
+/** `excludeBookingId` omits a booking's own rows, for editing it in place. */
 export async function checkRoomAvailability(
   roomId: number,
   startTime: Date,
@@ -74,15 +61,7 @@ export async function checkRoomAvailability(
   }
 }
 
-/**
- * Check availability for a specific external venue
- *
- * @param externalVenueId - The venue ID to check
- * @param startTime - Start time of the requested booking
- * @param endTime - End time of the requested booking
- * @param excludeBookingId - Optional booking ID to exclude (for editing)
- * @returns Object with availability status and any conflicts
- */
+/** As checkRoomAvailability, for an external venue. */
 export async function checkVenueAvailability(
   externalVenueId: number,
   startTime: Date,
@@ -124,14 +103,7 @@ export async function checkVenueAvailability(
   }
 }
 
-/**
- * Get all rooms with their availability status for a given time range
- *
- * @param startTime - Start time of the requested booking
- * @param endTime - End time of the requested booking
- * @param options - Additional options
- * @returns Object with available and unavailable rooms
- */
+/** Every room, split into available and unavailable for the range. */
 export async function getAvailableRooms(
   startTime: Date,
   endTime: Date,
@@ -173,14 +145,7 @@ export async function getAvailableRooms(
   return { available, unavailable }
 }
 
-/**
- * Get all external venues with their availability status for a given time range
- *
- * @param startTime - Start time of the requested booking
- * @param endTime - End time of the requested booking
- * @param options - Additional options
- * @returns Object with available and unavailable venues
- */
+/** Every external venue, split into available and unavailable for the range. */
 export async function getAvailableVenues(
   startTime: Date,
   endTime: Date,
@@ -220,15 +185,8 @@ export async function getAvailableVenues(
 }
 
 /**
- * Validate that a booking doesn't conflict with existing bookings
- * Throws an error if conflicts are found
- *
- * @param roomId - Optional room ID
- * @param externalVenueId - Optional external venue ID
- * @param startTime - Start time
- * @param endTime - End time
- * @param excludeBookingId - Optional booking to exclude
- * @param allowConflicts - Whether to allow conflicts (admin override)
+ * Throws 409 if the space is taken. `allowConflicts` is the admin override —
+ * double-booking deliberately, which the UI asks about first.
  */
 export async function validateBookingAvailability(
   roomId: number | undefined | null,

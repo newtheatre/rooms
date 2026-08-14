@@ -1,11 +1,6 @@
 /**
- * Database Connection and Prisma Client
- *
- * This module exports a singleton instance of the Prisma Client
- * for use across the Nuxt server API routes.
- * Handles Cloudflare D1 adapter in production.
- *
- * @module server/database
+ * The Prisma client, as a singleton. Uses the D1 adapter in production and a
+ * local SQLite file in development.
  */
 
 import { PrismaClient } from '@prisma/client'

@@ -1,27 +1,12 @@
 /**
- * Admin: Manage Bookings Page
+ * Admin: booking requests, pending first.
  *
- * Administrative interface for reviewing and managing all booking requests.
- * Organized with tabs: Pending (priority) and All Bookings (complete list).
- *
- * Features:
- * - Tab-based organization (Pending / All)
- * - Filter by status within each tab
- * - Search bookings by event title or user name
- * - Bulk actions (reject, delete)
- * - Quick actions for pending bookings:
- *   - Approve & Assign Internal Room → Status: CONFIRMED
- *   - Initiate External Booking → Status: AWAITING_EXTERNAL
- *   - Confirm External Booking → Status: CONFIRMED
- *   - Reject with reason → Status: REJECTED
- * - Manual booking creation
- * - Delete bookings
- * - Pagination and column visibility controls
- *
- * @route /admin/bookings
- * @authenticated
- * @admin-only
+ * The status flow a request can be moved through from here:
+ * PENDING -> CONFIRMED (assign an internal room)
+ *         -> AWAITING_EXTERNAL -> CONFIRMED (external venue)
+ *         -> REJECTED (reason required)
  */
+
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import { upperFirst } from 'scule'

@@ -1,33 +1,6 @@
 /**
- * Update User Preferences Endpoint
- *
- * Updates the current user's notification preferences.
- *
- * Request Body:
- * - notificationChannels?: ["EMAIL" | "PUSH"]
- * - notificationPreferences?: ["BOOKING_UPDATES"]
- *
- * Process:
- * 1. Get authenticated user from session
- * 2. Validate request body with updatePreferencesSchema
- * 3. Stringify JSON arrays
- * 4. Update user record in database
- * 5. Return updated preferences
- *
- * Response:
- * - 200: {
- *     notificationChannels: ["EMAIL"],
- *     notificationPreferences: ["BOOKING_UPDATES"]
- *   }
- * - 400: Validation error
- * - 401: Not authenticated
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method PUT
- * @route /api/account/preferences
- * @authenticated
+ * PUT /api/account/preferences — update the caller's notification channels and
+ * types. Account-security mail ignores both.
  */
 import prisma from '~~/server/database'
 

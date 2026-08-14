@@ -1,30 +1,5 @@
 /**
- * Get Room Details Endpoint
- *
- * Retrieves details for a specific room.
- * Admin-only endpoint.
- *
- * Process:
- * 1. Require admin authentication
- * 2. Parse room ID from route params
- * 3. Fetch room from database
- * 4. Optionally include bookings for this room
- * 5. Return room details
- *
- * Response:
- * - 200: Room object
- * - 401: Not authenticated
- * - 403: Not admin
- * - 404: Room not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method GET
- * @route /api/rooms/[id]
- * @authenticated
- * @admin-only
+ * GET /api/rooms/:id — one room. Admin only.
  */
 
 import prisma from '~~/server/database'

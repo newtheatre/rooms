@@ -1,46 +1,12 @@
 /**
- * Create Booking Endpoint
+ * POST /api/bookings — create a booking request. Any signed-in user.
  *
- * Creates a new booking request for the authenticated user.
- * Admins can create bookings on behalf of other users.
- * Supports single and recurring bookings.
+ * An admin may additionally set `userId` (book on behalf of someone),
+ * `roomId`/`externalVenueId` (assign a space) and `status`.
  *
- * Request Body (User):
- * - eventTitle: string
- * - numberOfAttendees?: number
- * - startTime: ISO 8601 datetime
- * - endTime: ISO 8601 datetime
- * - notes?: string
- * - recurringPattern?: { frequency, interval, daysOfWeek, maxOccurrences, endDate }
- *
- * Request Body (Admin - additional fields):
- * - userId?: string (create on behalf of user)
- * - roomId?: number (assign internal room)
- * - externalVenueId?: number (assign external venue)
- * - status?: BookingStatus (override status)
- *
- * Process:
- * 1. Get authenticated user from session
- * 2. Validate request body (admin vs user schema)
- * 3. If recurring, generate all occurrences
- * 4. Check availability for room/venue assignments
- * 5. Create booking(s) in database
- * 6. Send confirmation email to user
- * 7. Notify all admins if booking is PENDING (new request needing review)
- * 8. Return created booking(s)
- *
- * Response:
- * - 201: Booking object or array of bookings (for recurring)
- * - 400: Validation error
- * - 401: Not authenticated
- * - 409: Availability conflict
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method POST
- * @route /api/bookings
- * @authenticated
+ * `recurringPattern` expands to one booking row per occurrence, each checked for
+ * availability. Admins are notified of anything left PENDING; the notification is
+ * one batched email, not one per admin (see server/utils/notifications.ts).
  */
 import prisma from '~~/server/database'
 import { notifyBookingUpdate, getNotificationPreferences, sendBatchEmail, formatBookingDateTime } from '~~/server/utils/notifications'

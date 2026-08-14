@@ -1,29 +1,6 @@
 /**
- * Unsubscribe from Push Notifications Endpoint
- *
- * Removes a web push notification subscription for the current user.
- *
- * Request Body:
- * - endpoint: string (push service URL)
- *
- * Process:
- * 1. Get authenticated user from session
- * 2. Find subscription by endpoint and userId
- * 3. Delete subscription from database
- * 4. Return success message
- *
- * Response:
- * - 200: { message: "Unsubscribed successfully" }
- * - 400: Validation error
- * - 401: Not authenticated
- * - 404: Subscription not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method POST
- * @route /api/notifications/unsubscribe
- * @authenticated
+ * POST /api/notifications/unsubscribe — drop a Web Push subscription by
+ * endpoint. The caller may only remove their own.
  */
 import prisma from '~~/server/database'
 
