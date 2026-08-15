@@ -84,6 +84,9 @@ export default defineNuxtConfig({
         ],
         // Estate secrets come from the Secrets Store (stage-door ADR-0016); the
         // binding name matters — read server/plugins/0.secrets-store.ts first.
+
+        // Cast: `secrets_store_secrets` is valid wrangler config but missing from
+        // the wrangler types Nitro bundles. Drop it once Nitro catches up.
         ...({
           secrets_store_secrets: [
             {

@@ -24,7 +24,8 @@ CI gates on lint and build only. There is no test suite.
 ## Source of truth & docs discipline
 
 - **Code is truth; docs follow it.** A PR that changes behaviour updates the matching doc in the same PR.
-- There is no `docs/` directory and no ADRs here. `content/docs/` is **user-facing** guidance published to the site — do not put engineering notes in it. Estate-wide decisions live in stage-door's `docs/decisions/`; anything specific to this app currently has nowhere to go, which is itself worth fixing.
+- Engineering docs live in [`docs/`](docs/) — the data model and the API reference. `content/docs/` is **user-facing** guidance published to the site; do not put engineering notes in it.
+- There are still no ADRs here. Estate-wide decisions live in stage-door's `docs/decisions/`; anything specific to this app has nowhere to go yet (README §Known gaps).
 - Cross-app behaviour (sessions, roles, GDPR hooks, shadow accounts) is documented in stage-door: `docs/integrating-an-app.md`, `docs/session-contract.md`.
 
 ## Invariants — do not break these
@@ -51,15 +52,32 @@ CI gates on lint and build only. There is no test suite.
 
 ## Comments
 
-A comment carries what the code cannot: a constraint, a trap, a contract that is not obvious from the signature. It does not narrate, and it does not argue.
+Enforced by `bun run check:comments`, which CI runs. There are no exemptions.
 
-- **State the rule, not the story.** The rule is a comment; the incident that taught it is a decision record.
-- **Do not restate the code.** `@param count — Number of rooms selected` says nothing the signature does not, and a "Features:" list in a component header is out of date by the next release. This repo was full of both; do not reintroduce them.
-- **Do not restate `defineRouteMeta`.** Response codes belong in the OpenAPI block, once.
-- **No unprovenanced figures.** A comment cannot honestly carry a row count, because nothing updates it.
-- **Say plainly when something is not implemented**, at the thing that is not implemented — as `sendPushNotification` now does.
+1. **Two lines of text, maximum.** Delimiters do not count. Most comments should
+   be a few words. Past two lines you are writing a doc, not a comment.
+2. **Route headers are one line: what it does.** The method and path are the
+   filename, and the auth is the guard on the line below.
+3. **No JSDoc block tags.** No `@param`, `@returns`, `@props`, `@emits`,
+   `@route`, `@example`. The signature and the types already say it.
+4. **No narrated history.** Not "used to", "originally", "an earlier version".
+   The rule is a comment; the incident that taught it is a decision record.
+5. **No figures a comment cannot keep true.** Row counts and percentages go in
+   `docs/`, dated, where something updates them.
 
-One to five lines is the usual size. Past about ten, ask whether you are writing a decision record.
+Anything that does not fit has somewhere to go:
+
+| What it is | Where it goes |
+| --- | --- |
+| A reason that needs a paragraph | a decision record (this repo has none yet — see README §Known gaps) |
+| An enum, a lifecycle, a column list | `docs/` — the data model or API reference |
+| An endpoint's full contract | `docs/` — the API reference |
+| A trap that would cost someone an evening | a decision record, cited from a one-line comment |
+
+The comment then states the constraint and cites where the argument lives:
+```
+// ⚠️ The `0.` prefix is load-bearing (stage-door ADR-0016).
+```
 
 ## Things Claude Code should proactively flag
 
