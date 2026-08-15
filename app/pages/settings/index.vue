@@ -1,9 +1,7 @@
 <script setup lang="ts">
 /**
- * General Settings — stage-door integration.
- *
- * Name and email are part of the central NNT account and are edited there;
- * this page shows what this app sees (via the shared session).
+ * Name and email belong to the central account and are edited there; this
+ * shows what the session carries.
  */
 const { user } = useUserSession()
 const config = useRuntimeConfig()

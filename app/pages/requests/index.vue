@@ -1,27 +1,8 @@
 /**
- * User Booking Requests Page
- *
- * Lists all booking requests made by the current user.
- *
- * Features:
- * - Table/list view of user's bookings
- * - Status badges (PENDING, CONFIRMED, AWAITING_EXTERNAL, REJECTED, CANCELLED)
- * - Filter by status
- * - Sort by date (ascending/descending)
- * - Quick actions: View details, Cancel booking (if PENDING or CONFIRMED)
- * - Show rejection reason for REJECTED bookings
- * - Empty state with "Create booking" CTA
- *
- * Data Loading:
- * - GET /api/bookings (returns only user's bookings for STANDARD users)
- *
- * Uses nuxt-auth-utils:
- * - useUserSession() to check authentication
- * - Redirect to /login if not authenticated
- *
- * @route /requests
- * @authenticated
+ * The caller's own booking requests. A STANDARD user's GET /api/bookings is
+ * already scoped to them server-side.
  */
+
 <script setup lang="ts">
 import { DateFormatter } from '@internationalized/date'
 

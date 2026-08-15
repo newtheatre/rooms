@@ -1,9 +1,6 @@
 /**
- * Authentication middleware — stage-door integration.
- *
- * Login is hosted by the auth service; unauthenticated visitors bounce to
- * it with the way back preserved. In dev use /dev-login instead (see that
- * route).
+ * Login is hosted by the auth service; unauthenticated visitors bounce there
+ * with the way back preserved. In dev, use /dev-login.
  */
 export default defineNuxtRouteMiddleware((to) => {
   const { loggedIn } = useUserSession()

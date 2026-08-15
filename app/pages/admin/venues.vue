@@ -1,28 +1,8 @@
 /**
- * Admin: Manage External Venues Page
- *
- * Administrative interface for external venue management.
- *
- * Features:
- * - Table view of all external venues with selection
- * - Filter by campus and search by building/room
- * - View venue details (campus, building, room, contact, bookings count)
- * - Create new venues
- * - Update venue details (campus, building, room name, contact details)
- * - Delete venues (only if no bookings exist)
- *
- * Data Loading:
- * - GET /api/venues
- *
- * Data Mutations:
- * - POST /api/venues (create venue)
- * - PUT /api/venues/:id (update venue)
- * - DELETE /api/venues/:id (hard delete if no bookings)
- *
- * @route /admin/venues
- * @authenticated
- * @admin-only
+ * Admin: external venues. Deletion is permanent and refused once a venue has
+ * bookings.
  */
+
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import { upperFirst } from 'scule'

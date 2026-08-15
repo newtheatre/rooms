@@ -1,10 +1,7 @@
 <script setup lang="ts">
 /**
- * Security Settings — stage-door integration.
- *
- * Passwords, Google sign-in, and session security live in the central NNT
- * account service; this page links out. Notification preferences remain
- * app data (see the Notifications tab).
+ * Passwords and session security live in the central account service; this
+ * page links out.
  */
 const config = useRuntimeConfig()
 

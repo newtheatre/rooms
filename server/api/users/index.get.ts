@@ -1,32 +1,5 @@
 /**
- * List Users Endpoint
- *
- * Retrieves all user accounts.
- * Admin-only endpoint.
- *
- * Query Parameters:
- * - search?: string (search by name or email)
- *
- * Process:
- * 1. Require admin authentication
- * 2. Build query filters from query params
- * 3. Fetch users from database (exclude passwordHash)
- * 4. Optionally include booking count per user
- * 5. Return users array
- *
- * Response:
- * - 200: Array of user objects (without passwordHash)
- * - 401: Not authenticated
- * - 403: Not admin
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method GET
- * @route /api/users
- * @authenticated
- * @admin-only
+ * List local user mirrors. Admin only. `search` matches name and email.
  */
 import prisma from '~~/server/database'
 import type { Prisma } from '@prisma/client'

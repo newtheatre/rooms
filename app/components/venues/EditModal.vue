@@ -1,16 +1,3 @@
-/**
- * Edit Venue Modal Component
- *
- * Modal for editing external venue details (admin only).
- *
- * Features:
- * - Edit campus, building, room name, and contact details
- * - Form validation with Zod schema
- * - Toast notifications for success/error
- *
- * @props venue - Venue object to edit
- * @emits refresh - Emitted after successful update
- */
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'

@@ -1,35 +1,8 @@
 /**
- * Admin: Manage Rooms Page
- *
- * Administrative interface for room management.
- *
- * Features:
- * - Table view of all rooms with selection
- * - Filter by status (Active, Inactive)
- * - Search by room name
- * - View room details (capacity, bookings count, creation date)
- * - Create new rooms
- * - Update room details (name, description, capacity)
- * - Toggle room active status
- * - Delete (deactivate) room(s) - soft delete to preserve booking history
- *
- * Data Loading:
- * - GET /api/rooms
- *
- * Data Mutations:
- * - POST /api/rooms (create room)
- * - PUT /api/rooms/:id (update room)
- * - DELETE /api/rooms/:id (soft delete - set isActive to false)
- *
- * Uses nuxt-auth-utils:
- * - useUserSession() to check authentication
- * - Redirect to /login if not authenticated
- * - Redirect to / if user.role !== 'ADMIN' (403)
- *
- * @route /admin/rooms
- * @authenticated
- * @admin-only
+ * Admin: internal rooms. Deleting deactivates rather than removes, so the
+ * booking history stays readable.
  */
+
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import { upperFirst } from 'scule'

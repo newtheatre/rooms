@@ -1,47 +1,6 @@
 /**
- * Update Booking Endpoint
- *
- * Updates a booking. Behavior differs by role:
- *
- * ADMIN can update:
- * - roomId (assign internal room)
- * - externalVenueId (assign external venue)
- * - status (change booking status)
- * - rejectionReason (when rejecting)
- *
- * STANDARD user can update (only for PENDING bookings they own):
- * - eventTitle
- * - numberOfAttendees
- * - startTime
- * - endTime
- * - notes
- *
- * Request Body:
- * - Admin: Validated with updateBookingSchema
- * - User: Validated with createBookingSchema (partial)
- *
- * Process:
- * 1. Get authenticated user from session
- * 2. Fetch existing booking
- * 3. Check authorization
- * 4. Validate request body based on role
- * 5. Update booking in database
- * 6. If admin changed status, send notification to user (if preferences allow)
- * 7. Return updated booking
- *
- * Response:
- * - 200: Updated booking object
- * - 400: Validation error
- * - 401: Not authenticated
- * - 403: Unauthorized to update this booking
- * - 404: Booking not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method PUT
- * @route /api/bookings/[id]
- * @authenticated
+ * Update a booking. Admin and owner send different bodies, validated against
+ * different schemas — docs/api-reference.md#put-apibookingsid
  */
 import prisma from '~~/server/database'
 import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'

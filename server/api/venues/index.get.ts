@@ -1,31 +1,6 @@
 /**
- * List External Venues Endpoint
- *
- * Retrieves all external venue records.
- * - Regular users: Get basic venue info (id, campus, building, roomName, contactDetails)
- * - Admins: Get full details including creation date and booking counts
- *
- * Query Parameters:
- * - campus?: string (filter by campus)
- * - building?: string (filter by building)
- *
- * Process:
- * 1. Require authentication
- * 2. Check user role
- * 3. Build query filters from query params
- * 4. Fetch venues from database
- * 5. Return full data for admins, limited data for users
- *
- * Response:
- * - 200: Array of venue objects (full for admin, limited for users)
- * - 401: Not authenticated
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method GET
- * @route /api/venues
- * @authenticated
+ * GET /api/venues — list external venues. Admins also get creation dates and
+ * booking counts. Filters: campus, building.
  */
 
 import prisma from '../../database'

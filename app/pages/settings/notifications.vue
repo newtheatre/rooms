@@ -1,25 +1,8 @@
 /**
- * Notification Settings Page
- *
- * User notification preferences management.
- *
- * Features:
- * - Toggle notification channels (EMAIL, PUSH)
- * - Toggle booking update notifications
- * - Info about critical account updates (always sent via email)
- * - Web Push subscription management
- *
- * Data Loading:
- * - GET /api/account/preferences
- *
- * Data Updates:
- * - PUT /api/account/preferences
- * - POST /api/notifications/subscribe (for push)
- * - POST /api/notifications/unsubscribe
- *
- * @route /settings/notifications
- * @authenticated
+ * Account-security mail is always sent and is not listed here. PUSH delivers
+ * nothing — see server/utils/notifications.ts.
  */
+
 <script setup lang="ts">
 const toast = useToast()
 const { user } = useUserSession()

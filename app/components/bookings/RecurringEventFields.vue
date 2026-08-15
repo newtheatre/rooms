@@ -1,17 +1,8 @@
 /**
- * Recurring Event Fields Component
- *
- * Reusable component for recurring event configuration.
- * Used in both user and admin booking creation modals.
- *
- * @props isRecurring - v-model for the recurring toggle
- * @props frequency - v-model for the frequency selection
- * @props daysOfWeek - v-model for the selected days (weekly only)
- * @props maxOccurrences - v-model for max number of occurrences
- * @props eventDate - Optional event date for preview
- * @props context - 'user' or 'admin' for different alert messages
- * @props dayNameFormat - 'full' or 'short' for day names
+ * Recurring-event fields, shared by the user and admin booking modals.
+ * `context` switches the alert copy between the two.
  */
+
 <script setup lang="ts">
 import { DateFormatter } from '@internationalized/date'
 

@@ -1,16 +1,3 @@
-/**
- * Add Venue Modal Component
- *
- * Modal for creating new external venues (admin only).
- *
- * Features:
- * - Form validation with Zod schema
- * - Campus, building, room name, and contact details
- * - Creates venue via POST /api/venues
- * - Toast notifications for success/error
- *
- * @emits refresh - Emitted after successful venue creation
- */
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'

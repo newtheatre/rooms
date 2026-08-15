@@ -1,20 +1,13 @@
 /**
- * Authentication utilities — stage-door integration.
- *
- * The session is the estate-wide `nnt-session` cookie sealed by
- * auth.newtheatre.org.uk. This app reads it (getUserSession) and NEVER
- * writes it. Authorisation stays here: `rooms:ADMIN` is the only role this
- * app owns; logged-in is sufficient for booking requests (carried-forward
- * behaviour).
+ * The session is written only by the auth service; this app reads it.
+ * `rooms:ADMIN` is the only role this app owns.
  */
 
 import type { H3Event } from 'h3'
 import type { User } from '#auth-utils'
 
 /**
- * Requires user to be authenticated.
- *
- * @throws 401 Unauthorized if there is no valid session
+ * 401 if there is no valid session.
  */
 export async function requireAuth(event: H3Event): Promise<User> {
   const { user } = await getUserSession(event)
@@ -31,16 +24,8 @@ export async function requireAuth(event: H3Event): Promise<User> {
 }
 
 /**
- * Requires the `rooms:ADMIN` role.
- *
- * Privileged surfaces must not honour stale roles (session contract §rules):
- * if the session's last DB re-read is older than 15 minutes, this rejects
- * with 401 and a `stale: true` hint — the client middleware bounces the
- * browser through the auth service's refresh endpoint, which re-reads roles
- * and rejects disabled users and revoked sessions.
- *
- * @throws 401 if unauthenticated or the session needs a refresh
- * @throws 403 if authenticated but not a rooms admin
+ * Requires `rooms:ADMIN`. A session whose roles are over 15 minutes old gets
+ * 401 with `stale: true`, which the client turns into a refresh.
  */
 export async function requireAdmin(event: H3Event): Promise<User> {
   const session = await getUserSession(event)

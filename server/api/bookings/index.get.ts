@@ -1,32 +1,6 @@
 /**
- * List Bookings Endpoint
- *
- * Retrieves bookings based on user role.
- * - Admin: All bookings
- * - Standard user: Only their own bookings
- *
- * Query Parameters:
- * - status?: BookingStatus (filter by status)
- * - startDate?: ISO 8601 date (filter bookings starting after this date)
- * - endDate?: ISO 8601 date (filter bookings ending before this date)
- * - roomId?: number (filter by room)
- *
- * Process:
- * 1. Get authenticated user from session
- * 2. Build query filters based on role and query params
- * 3. Fetch bookings from database with relations (user, room, externalVenue)
- * 4. Return bookings array
- *
- * Response:
- * - 200: Array of booking objects with relations
- * - 401: Not authenticated
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method GET
- * @route /api/bookings
- * @authenticated
+ * List bookings. Admins see all; a standard user sees only their own, scoped
+ * server-side rather than by a query parameter.
  */
 import prisma from '~~/server/database'
 import type { Prisma } from '@prisma/client'

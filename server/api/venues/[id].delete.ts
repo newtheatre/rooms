@@ -1,32 +1,6 @@
 /**
- * Delete External Venue Endpoint
- *
- * Hard-deletes an external venue record.
- * Admin-only endpoint.
- *
- * Process:
- * 1. Require admin authentication
- * 2. Parse venue ID from route params
- * 3. Check if venue has any associated bookings
- * 4. If bookings exist, prevent deletion (or handle appropriately)
- * 5. Delete venue from database
- * 6. Return success message
- *
- * Response:
- * - 200: { message: "Venue deleted successfully" }
- * - 400: Venue has associated bookings
- * - 401: Not authenticated
- * - 403: Not admin
- * - 404: Venue not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method DELETE
- * @route /api/venues/[id]
- * @authenticated
- * @admin-only
+ * Permanently remove an external venue. Refused while any booking references
+ * it — there is no deactivated state, unlike rooms.
  */
 
 import prisma from '~~/server/database'

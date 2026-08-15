@@ -1,11 +1,3 @@
-/**
- * Delete Booking Modal
- *
- * Modal for confirming booking deletion.
- *
- * @props booking - Booking object to delete
- * @emits refresh - Emitted after successful deletion
- */
 <script setup lang="ts">
 const UBadge = resolveComponent('UBadge')
 

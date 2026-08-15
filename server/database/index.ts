@@ -1,21 +1,13 @@
 /**
- * Database Connection and Prisma Client
- *
- * This module exports a singleton instance of the Prisma Client
- * for use across the Nuxt server API routes.
- * Handles Cloudflare D1 adapter in production.
- *
- * @module server/database
+ * The Prisma client, as a singleton. Uses the D1 adapter in production and a
+ * local SQLite file in development.
  */
 
 import { PrismaClient } from '@prisma/client'
 import { PrismaD1 } from '@prisma/adapter-d1'
 
 /**
- * Prisma Client singleton factory
- *
- * In development, uses SQLite directly.
- * In production, uses Cloudflare D1 adapter.
+ * SQLite directly in development, the D1 adapter in production.
  */
 const prismaClientSingleton = () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -35,10 +27,7 @@ declare const globalThis: {
 } & typeof global
 
 /**
- * Global Prisma Client instance
- *
- * Uses a global variable to prevent multiple instances in development
- * due to hot module replacement.
+ * A global, so HMR does not open a second client in development.
  */
 const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
 

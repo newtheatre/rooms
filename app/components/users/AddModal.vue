@@ -1,12 +1,7 @@
 <script setup lang="ts">
 /**
- * Add User Modal — stage-door integration.
- *
- * Creates (or matches) a central shadow account by email via the auth
- * service and mirrors it locally, so a booking can be attached to someone
- * who has never logged in. No passwords are generated — the person can
- * claim the account themselves later. Full identity management lives at
- * the auth service admin.
+ * Creates or matches a central shadow account by email, then mirrors it, so a
+ * booking can attach to someone who has never signed in. No password is set.
  */
 import { z } from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'

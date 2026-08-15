@@ -1,30 +1,6 @@
 /**
- * List Rooms Endpoint
- *
- * Retrieves all internal rehearsal rooms.
- * - Regular users: Get basic room info (id, name, description, capacity) for active rooms only
- * - Admins: Get full details including isActive flag, creation date, and booking counts
- *
- * Query Parameters:
- * - includeInactive?: boolean (default: false, admin only - include inactive rooms)
- *
- * Process:
- * 1. Require authentication
- * 2. Check user role
- * 3. Build query filter for active/inactive rooms
- * 4. Fetch rooms from database
- * 5. Return full data for admins, limited data for users
- *
- * Response:
- * - 200: Array of room objects (full for admin, limited for users)
- * - 401: Not authenticated
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method GET
- * @route /api/rooms
- * @authenticated
+ * List internal rooms. Admins get every column plus booking counts and may ask
+ * for inactive ones.
  */
 
 import prisma from '~~/server/database'

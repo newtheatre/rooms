@@ -1,9 +1,6 @@
 <script setup lang="ts">
 /**
- * Auth Layout
- *
- * Minimal layout for authentication pages (login, register).
- * No navigation, just centered content with branding.
+ * Minimal layout for the auth pages: no navigation.
  */
 </script>
 

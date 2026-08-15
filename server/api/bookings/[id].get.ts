@@ -1,28 +1,5 @@
 /**
- * Get Booking Details Endpoint
- *
- * Retrieves details for a specific booking.
- * Users can only view their own bookings.
- * Admins can view any booking.
- *
- * Process:
- * 1. Get authenticated user from session
- * 2. Fetch booking from database with relations
- * 3. Check authorization (user owns booking OR user is admin)
- * 4. Return booking details
- *
- * Response:
- * - 200: Booking object with relations (user, room, externalVenue)
- * - 401: Not authenticated
- * - 403: User doesn't own this booking and is not admin
- * - 404: Booking not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method GET
- * @route /api/bookings/[id]
- * @authenticated
+ * GET /api/bookings/:id — one booking with its relations. Owner or admin.
  */
 import prisma from '~~/server/database'
 

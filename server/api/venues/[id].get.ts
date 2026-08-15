@@ -1,30 +1,5 @@
 /**
- * Get External Venue Details Endpoint
- *
- * Retrieves details for a specific external venue.
- * Admin-only endpoint.
- *
- * Process:
- * 1. Require admin authentication
- * 2. Parse venue ID from route params
- * 3. Fetch venue from database
- * 4. Optionally include bookings for this venue
- * 5. Return venue details
- *
- * Response:
- * - 200: Venue object
- * - 401: Not authenticated
- * - 403: Not admin
- * - 404: Venue not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method GET
- * @route /api/venues/[id]
- * @authenticated
- * @admin-only
+ * GET /api/venues/:id — one external venue. Admin only.
  */
 
 import prisma from '../../database'

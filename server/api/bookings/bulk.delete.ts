@@ -1,23 +1,7 @@
 /**
- * Bulk Delete Bookings Endpoint
+ * DELETE /api/bookings/bulk — delete many bookings in one request. Admin only.
  *
- * Deletes multiple bookings at once (admin only).
- * Sends grouped notifications to users (one email per user with all their deletions).
- *
- * Request Body:
- * - bookingIds: Array of booking IDs to delete
- *
- * Response:
- * - 200: { deleted: number }
- * - 400: Validation error
- * - 401: Not authenticated
- * - 403: Not authorized (admin only)
- * - 404: One or more bookings not found
- *
- * @method DELETE
- * @route /api/bookings/bulk
- * @authenticated
- * @admin
+ * Body: `{ bookingIds: number[] }`. Notifications are grouped by user.
  */
 import prisma from '~~/server/database'
 import { notifyBulkBookingUpdates, formatBookingDateTime } from '~~/server/utils/notifications'

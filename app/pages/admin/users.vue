@@ -1,11 +1,7 @@
 <script setup lang="ts">
 /**
- * Admin Users Page — stage-door integration.
- *
- * Identity, credentials, and roles live in the central auth service; this
- * page is the app-side view — who exists locally, how many bookings they
- * hold — plus shadow-account creation for attaching bookings. Everything
- * else deep-links to the auth admin.
+ * The app-side view of who exists locally. Identity, credentials and roles are
+ * the auth service's; this page deep-links there.
  */
 interface UserRow {
   id: string

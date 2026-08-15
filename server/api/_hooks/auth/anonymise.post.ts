@@ -4,10 +4,8 @@ import { z } from 'zod'
 const bodySchema = z.object({ userId: z.string().min(1) })
 
 /**
- * POST /api/_hooks/auth/anonymise — GDPR erasure, this app's share
- * (stage-door docs/gdpr-retention.md). Idempotent. Scrub list for rooms:
- * the mirror row's email/name, free-text booking notes (may name people),
- * and push subscriptions (device endpoints are personal data).
+ * GDPR erasure, this app's share. Idempotent.
+ * Scrub list: docs/api-reference.md#inbound-gdpr-hooks
  */
 export default defineEventHandler(async (event) => {
   requireHookAuth(event)

@@ -1,8 +1,6 @@
 /**
- * Room Availability Composable
- *
- * Provides reactive room availability checking for booking forms.
- * Automatically fetches available/unavailable rooms when date/time changes.
+ * Reactive availability for the booking forms; refetches when date or time
+ * changes.
  */
 
 import { ref, computed, watch } from 'vue'

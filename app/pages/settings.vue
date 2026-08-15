@@ -36,7 +36,9 @@ definePageMeta({
       </UDashboardNavbar>
 
       <UDashboardToolbar>
-        <!-- NOTE: The `-mx-1` class is used to align with the `DashboardSidebarCollapse` button here. -->
+        <!--
+        `-mx-1` aligns with the DashboardSidebarCollapse button.
+        -->
         <UNavigationMenu :items="links" highlight class="-mx-1 flex-1" />
       </UDashboardToolbar>
     </template>

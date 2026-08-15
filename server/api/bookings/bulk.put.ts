@@ -1,30 +1,6 @@
 /**
- * Bulk Update Bookings Endpoint
- *
- * Updates multiple bookings at once (admin only).
- * Accepts an array of booking updates with their IDs and update data.
- * More efficient than individual updates, especially for notification emails.
- * Groups notifications by user - each user receives one email with all their updates.
- *
- * Request Body:
- * - updates: Array of { id: number, data: UpdateData }
- *   where UpdateData contains:
- *     - roomId?: number
- *     - externalVenueId?: number
- *     - status?: BookingStatus
- *     - rejectionReason?: string
- *
- * Response:
- * - 200: { updated: number, bookings: Booking[] }
- * - 400: Validation error
- * - 401: Not authenticated
- * - 403: Not authorized (admin only)
- * - 404: One or more bookings not found
- *
- * @method PUT
- * @route /api/bookings/bulk
- * @authenticated
- * @admin
+ * Update many bookings at once. Admin only. Notifications are grouped by user,
+ * so five moved bookings send one email.
  */
 import prisma from '~~/server/database'
 import { notifyBulkBookingUpdates, formatBookingDateTime } from '~~/server/utils/notifications'

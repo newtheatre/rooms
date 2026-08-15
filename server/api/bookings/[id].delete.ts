@@ -1,30 +1,6 @@
 /**
- * Delete Booking Endpoint
- *
- * Deletes a booking. Admins can delete any booking, users can only cancel their own.
- *
- * Process:
- * 1. Require authentication
- * 2. Parse booking ID from route params
- * 3. Fetch existing booking
- * 4. Check authorization (admin or booking owner)
- * 5. Delete booking from database
- * 6. Send cancellation notification to user
- * 7. Return success message
- *
- * Response:
- * - 200: { message: "Booking deleted successfully" }
- * - 400: Invalid booking ID
- * - 401: Not authenticated
- * - 403: Not authorized to delete this booking
- * - 404: Booking not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- *
- * @method DELETE
- * @route /api/bookings/[id]
- * @authenticated
+ * DELETE /api/bookings/:id — delete a booking. Owner or admin. Notifies the
+ * owner.
  */
 
 import prisma from '~~/server/database'

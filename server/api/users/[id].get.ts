@@ -1,30 +1,5 @@
 /**
- * Get User Details Endpoint
- *
- * Retrieves details for a specific user account.
- * Admin-only endpoint.
- *
- * Process:
- * 1. Require admin authentication
- * 2. Parse user ID from route params
- * 3. Fetch user from database (exclude passwordHash)
- * 4. Include bookings count and recent bookings
- * 5. Return user details
- *
- * Response:
- * - 200: User object with bookings info (without passwordHash)
- * - 401: Not authenticated
- * - 403: Not admin
- * - 404: User not found
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method GET
- * @route /api/users/[id]
- * @authenticated
- * @admin-only
+ * GET /api/users/:id — one local user mirror, with their bookings. Admin only.
  */
 import prisma from '~~/server/database'
 

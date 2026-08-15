@@ -1,35 +1,5 @@
 /**
- * Create Room Endpoint
- *
- * Creates a new internal rehearsal room.
- * Admin-only endpoint.
- *
- * Request Body:
- * - name: string
- * - description?: string
- * - capacity?: number
- * - isActive?: boolean (default: true)
- *
- * Process:
- * 1. Require admin authentication
- * 2. Validate request body with createRoomSchema
- * 3. Create room in database
- * 4. Return created room
- *
- * Response:
- * - 201: Room object
- * - 400: Validation error
- * - 401: Not authenticated
- * - 403: Not admin
- *
- * Uses nuxt-auth-utils:
- * - requireUserSession(event)
- * - Check rooms:ADMIN (estate session)
- *
- * @method POST
- * @route /api/rooms
- * @authenticated
- * @admin-only
+ * POST /api/rooms — create an internal room. Admin only.
  */
 
 import prisma from '~~/server/database'

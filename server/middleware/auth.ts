@@ -1,10 +1,6 @@
 /**
- * Global API guard — protection is opt-OUT, not opt-in (this was the app's
- * biggest pre-integration footgun; stage-door docs/integrating-an-app.md §3).
- *
- * Every /api/** request needs a valid estate session except the explicit
- * public allowlist. Also upserts the local user mirror for authenticated
- * requests (bookings FK against it).
+ * Protection is opt-OUT: every /api/** request needs a session except the
+ * allowlist below. Also upserts the local user mirror.
  */
 
 const PUBLIC_API = [
