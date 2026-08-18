@@ -27,7 +27,7 @@ if (error.value) {
 }
 
 // Check if user is admin
-const isAdmin = computed(() => hasRole(user.value, 'rooms', 'ADMIN'))
+const isAdmin = computed(() => can(user.value, 'admin.access'))
 
 // Notification state - populated from API response
 const state = reactive<{ [key: string]: boolean }>({

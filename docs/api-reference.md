@@ -110,8 +110,7 @@ The manifest is `shared/utils/appManifest.ts`, served verbatim. `rooms:ADMIN` is
 this app owns, but the four things it actually gates are now named rather than inferred:
 `admin.access`, `booking.read.any`, `booking.manage.any` and `room.read.inactive`. That distinction
 matters at the sites that redact a field rather than refuse a request, such as the booked-by name in
-`GET /api/rooms/available`. Nothing consumes the permissions yet; the checks move onto them in a
-separate change.
+`GET /api/rooms/available`. Every check now names one of them rather than the role that implies it.
 
 Permissions are lowercase and dotted where roles are uppercase, so no string can be read as both.
 

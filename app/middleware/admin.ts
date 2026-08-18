@@ -24,7 +24,7 @@ export default defineNuxtRouteMiddleware((to) => {
     )
   }
 
-  if (!hasRole(user.value, 'rooms', 'ADMIN')) {
+  if (!can(user.value, 'admin.access')) {
     return navigateTo('/')
   }
 })

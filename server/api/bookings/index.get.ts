@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
 
   const where = and(
     // Non-admins only ever see their own bookings.
-    hasRole(user, 'rooms', 'ADMIN') ? undefined : eq(schema.bookings.userId, user.id),
+    can(user, 'booking.read.any') ? undefined : eq(schema.bookings.userId, user.id),
     isValidStatus ? eq(schema.bookings.status, statusFilter as BookingStatus) : undefined,
     startDate ? gte(schema.bookings.startTime, new Date(startDate)) : undefined,
     endDate ? lte(schema.bookings.endTime, new Date(endDate)) : undefined,

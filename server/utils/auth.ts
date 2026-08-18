@@ -1,6 +1,6 @@
 /**
  * The session is written only by the auth service; this app reads it.
- * `rooms:ADMIN` is the only role this app owns.
+ * Checks name a permission from appManifest.ts, not the role that implies it.
  */
 
 import type { H3Event } from 'h3'
@@ -24,7 +24,7 @@ export async function requireAuth(event: H3Event): Promise<User> {
 }
 
 /**
- * Requires `rooms:ADMIN`. A session whose roles are over 15 minutes old gets
+ * Requires `admin.access`. A session whose roles are over 15 minutes old gets
  * 401 with `stale: true`, which the client turns into a refresh.
  */
 export async function requireAdmin(event: H3Event): Promise<User> {
@@ -46,7 +46,7 @@ export async function requireAdmin(event: H3Event): Promise<User> {
     })
   }
 
-  if (!hasRole(session.user, 'rooms', 'ADMIN')) {
+  if (!can(session.user, 'admin.access')) {
     throw createError({
       statusCode: 403,
       statusMessage: 'Forbidden',

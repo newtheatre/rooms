@@ -14,8 +14,8 @@ export async function ensureLocalUser(user: User): Promise<void> {
   const last = lastUpserted.get(user.id)
   if (last && Date.now() - last < UPSERT_INTERVAL_MS) return
 
-  // isRoomsAdmin is a derived cache for notification fan-out only; the
-  // session stays authoritative for authorisation (see schema comment).
+  // A derived cache for notification fan-out only, so it tracks the role
+  // rather than a permission. Never gate on it: the session is authoritative.
   const isRoomsAdmin = hasRole(user, 'rooms', 'ADMIN')
 
   await db
