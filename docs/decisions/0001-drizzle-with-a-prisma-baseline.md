@@ -21,28 +21,46 @@ Adopt `@nuxthub/core` and Drizzle, matching the other three repos. Access the da
 `import { db, schema } from '@nuxthub/db'`, keep the schema in `server/db/schema/`, and generate
 migrations into `server/db/migrations/sqlite/`.
 
-**The existing tables are not rebuilt.** The Drizzle schema is written to describe the tables
-Prisma already created, down to the index names, and migration `0000_baseline_from_prisma`
-reproduces them exactly. Production never runs it: the migration is marked as already applied.
+Storage is converted to Drizzle's conventions rather than worked around. Two migrations:
 
-Two mapping details make that faithful, and both are load-bearing:
+- `0000_baseline_from_prisma` describes the tables Prisma already created, down to the index names.
+  Production never runs it; it is recorded as already applied.
+- `0001_dates_to_integer_ms` rebuilds every table, converting timestamps.
 
-- Prisma stores SQLite `DATETIME` as **integer milliseconds since the epoch**, not text. Every
-  such column is `integer(..., { mode: 'timestamp_ms' })`.
-- Prisma stores `BOOLEAN` as integer 0/1, so those are `integer(..., { mode: 'boolean' })`.
+**The timestamp conversion is the point of this record.** Prisma's storage format depends on the
+driver, and the two we had disagreed:
 
-The declared column types therefore differ from the live DDL (`integer` where SQLite was told
-`DATETIME`). SQLite is dynamically typed and the stored values are unchanged, so reads and writes
-behave identically.
+| Where | Driver | `created_at` stored as |
+| --- | --- | --- |
+| Local development | Prisma on a SQLite file | integer milliseconds |
+| **Production** | `@prisma/adapter-d1` | **ISO 8601 text**, `2025-10-08T19:03:51.808+00:00` |
+
+Drizzle's `timestamp_ms` binds an integer. **SQLite compares INTEGER against TEXT by storage class
+before value**, so an integer bind never matches a text column: `WHERE start_time < ?` returns no
+rows, every conflict lookup comes back empty, and the app cheerfully double-books a room. It fails
+silently and only in production, which is the worst combination available.
+
+`0001` therefore rewrites all six tables with integer-millisecond timestamps, converting with
+`unixepoch(col, 'subsec') * 1000`. That expression was checked against every production row before
+it was trusted; `julianday` was rejected for being a millisecond out on some values.
+
+Booleans needed no conversion: both drivers already stored integer 0/1, so those columns are
+`integer(..., { mode: 'boolean' })`.
+
+Autoincrement sequences are restored explicitly. `bookings` had reached 264 with 258 rows, and
+letting the rebuilt table derive its counter from `max(id)` would have handed new bookings ids that
+already existed.
 
 ## Alternatives considered
 
 - **Stay on Prisma.** Free today, but keeps a second ORM, a second migration workflow and a second
   local-dev story in an estate maintained by two or three people at a time. The divergence was
   already documented as an accident of history, not a choice.
-- **Dump and reload the data into fresh Drizzle-generated tables.** Would have made the DDL match
-  the snapshot exactly. Rejected: it turns a code change into a data migration against live
-  booking records, for a cosmetic gain.
+- **Keep the production text format** and teach Drizzle to read it, with a `customType` emitting
+  the same `+00:00` strings. No data migration and no risk to live rows. Rejected because it leaves
+  this repo storing dates differently from the rest of the estate, as text that only sorts
+  correctly while every writer agrees on the format, which is a trap for the next person rather
+  than a fix.
 
 ## Consequences
 
@@ -50,13 +68,16 @@ Good: one ORM, one schema workflow and one set of D1 lessons across the estate. 
 now passes, so CI can gate on it as the other repos do. Three latent D1 problems were fixed on the
 way (below).
 
-Bad: the live DDL and the Drizzle snapshot describe the same tables in different words. Anyone
-introspecting production and diffing it against the snapshot will see type-name noise that is not a
-real difference. Any future migration is generated against the snapshot, which is the authority.
+Bad: `0001` is a full rebuild of every table in the database. It was rehearsed against a copy of
+production and every row and field compared against a backup before it was applied, which is the
+only reason to be comfortable with it.
 
-**The cutover is manual and must happen before the first deploy of this branch.** NuxtHub tracks
-applied migrations in `_hub_migrations`, which production does not have. Create it and record the
-baseline as applied, or NuxtHub will try to create tables that already exist:
+**The cutover is manual and happens before the first deploy of this branch**, in this order:
+
+1. Back up every table. The migration drops the originals.
+2. Apply `0001_dates_to_integer_ms.sql` to production.
+3. Create `_hub_migrations` and record both migrations, or NuxtHub will try to create tables that
+   already exist:
 
 ```sql
 CREATE TABLE IF NOT EXISTS _hub_migrations (
@@ -64,10 +85,11 @@ CREATE TABLE IF NOT EXISTS _hub_migrations (
   name       TEXT UNIQUE,
   applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
-INSERT INTO _hub_migrations (name) VALUES ('0000_baseline_from_prisma');
+INSERT INTO _hub_migrations (name) VALUES ('0000_baseline_from_prisma'), ('0001_dates_to_integer_ms');
 ```
 
-`_prisma_migrations` can be dropped afterwards, at leisure. It is inert once Prisma is gone.
+Production had no `_prisma_migrations` table: those migrations were applied by hand, so there is
+nothing to clean up.
 
 ## Fixed on the way
 

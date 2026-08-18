@@ -5,13 +5,14 @@ does not fit in its comments. Drizzle through NuxtHub's `hub:db` layer, as the r
 
 Table names are snake_case, given explicitly to each column; the TypeScript fields are camelCase.
 
-Two storage details are inherited from the Prisma schema these tables were created by, and both
-matter when reading or writing them
+Two storage details matter when reading or writing these tables
 ([ADR-0001](decisions/0001-drizzle-with-a-prisma-baseline.md)):
 
-- **Timestamps are integer milliseconds** since the epoch, declared `DATETIME` in the live DDL.
-  Drizzle maps them with `{ mode: 'timestamp_ms' }`, so application code sees a `Date`.
-- **Booleans are integer 0/1**, declared `BOOLEAN`. Drizzle maps them with `{ mode: 'boolean' }`.
+- **Timestamps are integer milliseconds** since the epoch. Drizzle maps them with
+  `{ mode: 'timestamp_ms' }`, so application code sees a `Date`. Production held ISO text until the
+  `0001` migration converted it; do not reintroduce a text format, because SQLite compares INTEGER
+  and TEXT by storage class and a mixed column silently matches nothing.
+- **Booleans are integer 0/1**. Drizzle maps them with `{ mode: 'boolean' }`.
 
 ## users
 
