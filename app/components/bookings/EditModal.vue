@@ -423,7 +423,7 @@ watch(() => state.venueType, (newType) => {
             label="Cancel"
             color="neutral"
             variant="subtle"
-            @click="open = false"
+            @click="() => { open = false }"
           />
           <UButton
             label="Update Booking"

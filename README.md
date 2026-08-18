@@ -74,7 +74,7 @@ Full integration story: stage-door `docs/integrating-an-app.md`.
 ```bash
 bun run dev        # local dev server
 bun run lint       # eslint
-bun run typecheck  # nuxt typecheck
+bun run typecheck  # nuxt typecheck — one known error, see below
 bun run build      # the production Worker bundle
 bun run db:generate # generate a migration from schema changes (review the SQL!)
 bun run db:migrate  # apply migrations to the local database
@@ -95,7 +95,15 @@ Recorded here rather than left to be discovered:
 - **`getAvailableRooms` and `getAvailableVenues` query per space**, so listing availability across
   N rooms costs N+1 queries. Correct, but wasteful on D1, which bills per query.
 
-`bun run typecheck` now passes and CI could gate on it; it currently does not.
+**`bun run typecheck` reports exactly one error**, down from sixteen. It is in
+`shared/utils/nntAuth.ts`, on its `declare module '#auth-utils'`, and it is an artefact of that
+being the only file in `shared/`: nothing there imports anything, so TypeScript never resolves
+`#auth-utils` in the shared project and rejects the augmentation. proscenium carries a
+byte-identical copy and passes, because its shared files import `#imports`.
+
+The file is a verbatim copy of stage-door's `packages/auth-types` and must not be edited here, so
+this stays until either that package is published or something else lands in `shared/`. CI gates on
+lint and build, both of which pass.
 
 Note that `content/docs/` is **user-facing** guidance published to the site. Engineering
 documentation lives in [`docs/`](docs/).

@@ -457,7 +457,7 @@ watch(() => state.externalVenueId, (newVal) => {
                         size="xs"
                         variant="ghost"
                         :color="showUnavailableRooms ? 'primary' : 'neutral'"
-                        @click="showUnavailableRooms = !showUnavailableRooms"
+                        @click="() => { showUnavailableRooms = !showUnavailableRooms }"
                       >
                         {{ showUnavailableRooms ? 'Hide' : 'Show' }} unavailable
                       </UButton>
@@ -552,7 +552,7 @@ watch(() => state.externalVenueId, (newVal) => {
             label="Cancel"
             color="neutral"
             variant="subtle"
-            @click="open = false"
+            @click="() => { open = false }"
           />
           <UButton
             label="Create Booking"

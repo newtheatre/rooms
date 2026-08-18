@@ -14,13 +14,14 @@ This is the least-maintained repo in the estate. Read [README.md](README.md) §K
 bun install        # deps (Bun is the package manager — bun.lock is the only lockfile)
 bun run dev        # local dev server on :3000
 bun run lint       # eslint
-bun run typecheck  # nuxt typecheck
+bun run typecheck  # nuxt typecheck — one known error, see README
 bun run build      # the production Worker bundle
 bun run db:generate # generate a migration from schema changes (review the SQL!)
 bun run db:migrate  # apply migrations to the local database
 ```
 
-CI gates on lint and build. There is no test suite. `typecheck` now passes and is worth running.
+CI gates on lint and build. There is no test suite. `typecheck` reports exactly one error, in
+`shared/utils/nntAuth.ts`; it is an artefact, not a real fault (README §Known gaps).
 
 ## Source of truth & docs discipline
 
