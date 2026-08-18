@@ -2,7 +2,7 @@
  * Create a user to attach a booking to. Admin only.
  * Asks the auth service for a shadow account and mirrors the canonical id.
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
 import { z } from 'zod'
 
 defineRouteMeta({
@@ -70,11 +70,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 502, message: 'Could not reach the auth service — try again' })
   }
 
-  const user = await prisma.user.upsert({
-    where: { id: shadow.id },
-    update: { email, name },
-    create: { id: shadow.id, email, name }
-  })
+  const user = requireRow(await db
+    .insert(schema.users)
+    .values({ id: shadow.id, email, name })
+    .onConflictDoUpdate({
+      target: schema.users.id,
+      set: { email, name }
+    })
+    .returning())
 
   return { id: user.id, email: user.email, name: user.name, existing: shadow.existing }
 })

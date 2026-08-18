@@ -14,18 +14,19 @@ This is the least-maintained repo in the estate. Read [README.md](README.md) §K
 bun install        # deps (Bun is the package manager — bun.lock is the only lockfile)
 bun run dev        # local dev server on :3000
 bun run lint       # eslint
-bun run typecheck  # nuxt typecheck — does NOT currently pass, see below
+bun run typecheck  # nuxt typecheck
 bun run build      # the production Worker bundle
-bunx prisma studio # inspect the local database
+bun run db:generate # generate a migration from schema changes (review the SQL!)
+bun run db:migrate  # apply migrations to the local database
 ```
 
-CI gates on lint and build only. There is no test suite.
+CI gates on lint and build. There is no test suite. `typecheck` now passes and is worth running.
 
 ## Source of truth & docs discipline
 
 - **Code is truth; docs follow it.** A PR that changes behaviour updates the matching doc in the same PR.
 - Engineering docs live in [`docs/`](docs/) — the data model and the API reference. `content/docs/` is **user-facing** guidance published to the site; do not put engineering notes in it.
-- There are still no ADRs here. Estate-wide decisions live in stage-door's `docs/decisions/`; anything specific to this app has nowhere to go yet (README §Known gaps).
+- Decision records live in [`docs/decisions/`](docs/decisions/). Estate-wide decisions live in stage-door's `docs/decisions/`.
 - Cross-app behaviour (sessions, roles, GDPR hooks, shadow accounts) is documented in stage-door: `docs/integrating-an-app.md`, `docs/session-contract.md`.
 
 ## Invariants — do not break these
@@ -39,11 +40,12 @@ CI gates on lint and build only. There is no test suite.
 7. **The `NUXT_` prefix on `NUXT_AUTH_SERVICE_TOKEN` is load-bearing.** Nuxt only maps `NUXT_*` env onto `runtimeConfig`; a worker secret named `AUTH_SERVICE_TOKEN` is silently ignored.
 8. **Batch email BCCs.** `sendBatchEmail` puts recipients in `bcc` so an admin list is not disclosed to every admin. Do not "simplify" it back to `to`.
 9. **Erasure is anonymisation.** The GDPR hooks under `server/api/_hooks/auth/` are called by stage-door; they scrub this app's share and are idempotent because stage-door retries them.
-10. **Each hook statement binds a fixed number of parameters.** D1 caps at 100 per statement, and this fails in production long after it passes in dev — scope by predicate, never by an id list built from a result set.
+10. **Each statement binds a fixed number of parameters.** D1 caps at 100 per statement, and this fails in production long after it passes in dev — scope by predicate, never by an id list built from a result set. Where a list is unavoidable, `chunkedByIds` in `server/utils/db.ts` is the one implementation.
+11. **Booking responses carry an allow-listed user**, never the whole mirror row, which also holds notification settings. `server/utils/bookingQueries.ts` is the single shape ([ADR-0001](docs/decisions/0001-drizzle-with-a-prisma-baseline.md)).
 
 ## Repo conventions
 
-- **Prisma**, not Drizzle — the one deliberate divergence from the rest of the estate. Migration and schema advice from proscenium, rehearsal and stage-door does not transfer.
+- **Drizzle via NuxtHub**, as the rest of the estate. `import { db, schema } from '@nuxthub/db'`; schema in `server/db/schema/`, migrations in `server/db/migrations/sqlite/`.
 - Zod for request bodies and query strings (`server/utils/validation.ts`). One route = one file under `server/api/`.
 - Endpoints declare their responses in `defineRouteMeta({ openAPI: … })`. That block is the machine-readable contract — do not duplicate status codes into the file's comment, where they will drift.
 - Errors via `createError` — no internal detail in responses.
@@ -69,7 +71,7 @@ Anything that does not fit has somewhere to go:
 
 | What it is | Where it goes |
 | --- | --- |
-| A reason that needs a paragraph | a decision record (this repo has none yet — see README §Known gaps) |
+| A reason that needs a paragraph | a decision record in `docs/decisions/` |
 | An enum, a lifecycle, a column list | `docs/` — the data model or API reference |
 | An endpoint's full contract | `docs/` — the API reference |
 | A trap that would cost someone an evening | a decision record, cited from a one-line comment |
@@ -82,6 +84,7 @@ The comment then states the constraint and cites where the argument lives:
 ## Things Claude Code should proactively flag
 
 - Any code path that decides availability without going through `server/utils/availability.ts`.
+- Any customer-facing response built without a column allow-list.
 - Any query whose bound-parameter count grows with the number of rows it covers.
 - Any reintroduction of credential storage, role editing or password UI.
 - A comment that restates a signature, a template, or the OpenAPI block below it.

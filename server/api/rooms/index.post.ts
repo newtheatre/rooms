@@ -2,7 +2,7 @@
  * POST /api/rooms — create an internal room. Admin only.
  */
 
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
 
 defineRouteMeta({
   openAPI: {
@@ -61,23 +61,13 @@ export default defineEventHandler(async (event) => {
 
   const { name, description, capacity, isActive } = body
 
-  const room = await prisma.room.create({
-    data: {
-      name,
-      description,
-      capacity,
-      isActive
-    },
-    include: {
-      _count: {
-        select: { bookings: true }
-      }
-    }
-  })
+  const room = requireRow(await db
+    .insert(schema.rooms)
+    .values({ name, description, capacity, isActive })
+    .returning())
 
   setResponseStatus(event, 201)
-  return {
-    ...room,
-    bookingCount: room._count.bookings
-  }
+
+  // A new room has no bookings yet.
+  return { ...room, bookingCount: 0 }
 })

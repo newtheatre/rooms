@@ -2,7 +2,8 @@
  * Update a booking. Admin and owner send different bodies, validated against
  * different schemas — docs/api-reference.md#put-apibookingsid
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
 import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'
 
 defineRouteMeta({
@@ -68,8 +69,6 @@ export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)
 
-  const db = prisma
-
   // Parse booking ID from route params
   const id = Number.parseInt(event.context.params?.id || '')
   if (Number.isNaN(id)) {
@@ -80,18 +79,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // Fetch existing booking
-  const existingBooking = await db.booking.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      }
-    }
-  })
+  const existingBooking = firstRow(await db
+    .select()
+    .from(schema.bookings)
+    .where(eq(schema.bookings.id, id))
+    .limit(1))
 
   if (!existingBooking) {
     throw createError({
@@ -109,31 +101,23 @@ export default defineEventHandler(async (event) => {
     const statusChanged = data.status && data.status !== existingBooking.status
 
     // Update booking
-    const updatedBooking = await db.booking.update({
-      where: { id },
-      data: {
+    await db
+      .update(schema.bookings)
+      .set({
         ...(data.roomId !== undefined && { roomId: data.roomId, externalVenueId: null }),
         ...(data.externalVenueId !== undefined && { externalVenueId: data.externalVenueId, roomId: null }),
         ...(data.status && { status: data.status }),
         ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason })
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            notificationChannels: true,
-            notificationPreferences: true
-          }
-        },
-        room: true,
-        externalVenue: true
-      }
-    })
+      })
+      .where(eq(schema.bookings.id, id))
+
+    const updatedBooking = await findBooking(id)
+    if (!updatedBooking) {
+      throw createError({ statusCode: 404, message: 'Booking not found' })
+    }
 
     // Send notification if status changed
-    if (statusChanged && updatedBooking.user) {
+    if (statusChanged && updatedBooking.userId) {
       const bookingDateTime = formatBookingDateTime(updatedBooking)
       const statusMessages: Record<string, string> = {
         CONFIRMED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been confirmed in ${updatedBooking.room ? `${updatedBooking.room.name}` : `${updatedBooking.externalVenue?.building} - ${updatedBooking.externalVenue?.roomName}`}.`,
@@ -144,10 +128,12 @@ export default defineEventHandler(async (event) => {
 
       const message = statusMessages[updatedBooking.status] || `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) status has been updated to ${updatedBooking.status}.`
 
-      // Fetch full user record for notifications
-      const fullUser = await db.user.findUnique({
-        where: { id: updatedBooking.user.id }
-      })
+      // The response deliberately omits the notification columns.
+      const fullUser = firstRow(await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, updatedBooking.userId))
+        .limit(1))
 
       if (fullUser) {
         // Send notification
@@ -178,27 +164,21 @@ export default defineEventHandler(async (event) => {
     const data = await readValidatedBody(event, createBookingSchema.partial().parse)
 
     // Update booking details
-    const updatedBooking = await db.booking.update({
-      where: { id },
-      data: {
+    await db
+      .update(schema.bookings)
+      .set({
         ...(data.eventTitle && { eventTitle: data.eventTitle }),
         ...(data.numberOfAttendees !== undefined && { numberOfAttendees: data.numberOfAttendees }),
         ...(data.startTime && { startTime: new Date(data.startTime) }),
         ...(data.endTime && { endTime: new Date(data.endTime) }),
         ...(data.notes !== undefined && { notes: data.notes })
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        room: true,
-        externalVenue: true
-      }
-    })
+      })
+      .where(eq(schema.bookings.id, id))
+
+    const updatedBooking = await findBooking(id)
+    if (!updatedBooking) {
+      throw createError({ statusCode: 404, message: 'Booking not found' })
+    }
 
     return updatedBooking
   }

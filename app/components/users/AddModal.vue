@@ -3,7 +3,7 @@
  * Creates or matches a central shadow account by email, then mirrors it, so a
  * booking can attach to someone who has never signed in. No password is set.
  */
-import { z } from 'zod'
+import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
 const emit = defineEmits<{ refresh: [] }>()

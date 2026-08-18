@@ -2,7 +2,8 @@
  * GET /api/venues/:id — one external venue. Admin only.
  */
 
-import prisma from '../../database'
+import { db, schema } from '@nuxthub/db'
+import { count, eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -58,14 +59,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const venue = await prisma.externalVenue.findUnique({
-    where: { id },
-    include: {
-      _count: {
-        select: { bookings: true }
-      }
-    }
-  })
+  const venue = firstRow(await db
+    .select({
+      id: schema.externalVenues.id,
+      campus: schema.externalVenues.campus,
+      building: schema.externalVenues.building,
+      roomName: schema.externalVenues.roomName,
+      contactDetails: schema.externalVenues.contactDetails,
+      createdAt: schema.externalVenues.createdAt,
+      bookingCount: count(schema.bookings.id)
+    })
+    .from(schema.externalVenues)
+    .leftJoin(schema.bookings, eq(schema.bookings.externalVenueId, schema.externalVenues.id))
+    .where(eq(schema.externalVenues.id, id))
+    .groupBy(schema.externalVenues.id))
 
   if (!venue) {
     throw createError({
@@ -74,8 +81,5 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return {
-    ...venue,
-    bookingCount: venue._count.bookings
-  }
+  return venue
 })

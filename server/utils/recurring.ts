@@ -3,8 +3,9 @@
  * series entity — occurrences are handled one at a time.
  */
 
-import type { RecurringPattern, Booking } from '@prisma/client'
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { asc, eq, or } from 'drizzle-orm'
+import type { RecurringPattern, Booking } from '~~/server/db/schema/booking'
 import { checkRoomAvailability, checkVenueAvailability } from './availability'
 
 export interface RecurringPatternInput {
@@ -261,9 +262,11 @@ export async function createRecurringBookings(
   const occurrences = generateRecurringOccurrences(pattern, baseStartTime, baseEndTime)
 
   // Create the parent booking (first occurrence)
-  const firstOccurrence = occurrences[0]
-  const parentBooking = await prisma.booking.create({
-    data: {
+  // generateRecurringOccurrences always yields at least one occurrence.
+  const firstOccurrence = occurrences[0]!
+  const parentBooking = requireRow(await db
+    .insert(schema.bookings)
+    .values({
       userId: parentBookingData.userId || null,
       eventTitle: parentBookingData.eventTitle,
       numberOfAttendees: parentBookingData.numberOfAttendees,
@@ -274,27 +277,30 @@ export async function createRecurringBookings(
       status: parentBookingData.status,
       notes: parentBookingData.notes,
       occurrenceNumber: 1
-    }
-  })
+    })
+    .returning())
 
   // Create the recurring pattern
-  const recurringPattern = await prisma.recurringPattern.create({
-    data: {
+  const recurringPattern = requireRow(await db
+    .insert(schema.recurringPatterns)
+    .values({
       bookingId: parentBooking.id,
       frequency: pattern.frequency,
       interval: pattern.interval || 1,
       daysOfWeek: pattern.daysOfWeek ? JSON.stringify(pattern.daysOfWeek) : null,
       maxOccurrences: pattern.maxOccurrences,
       endDate: pattern.endDate
-    }
-  })
+    })
+    .returning())
 
-  // Create child bookings for remaining occurrences
+  // One insert per occurrence: a single multi-row insert would bind more than
+  // D1's 100 parameters at the upper end of maxOccurrences (CLAUDE.md 10).
   const childBookings: Booking[] = []
   for (let i = 1; i < occurrences.length; i++) {
-    const occurrence = occurrences[i]
-    const childBooking = await prisma.booking.create({
-      data: {
+    const occurrence = occurrences[i]!
+    const childBooking = requireRow(await db
+      .insert(schema.bookings)
+      .values({
         userId: parentBookingData.userId || null,
         eventTitle: parentBookingData.eventTitle,
         numberOfAttendees: parentBookingData.numberOfAttendees,
@@ -306,8 +312,8 @@ export async function createRecurringBookings(
         notes: parentBookingData.notes,
         parentBookingId: parentBooking.id,
         occurrenceNumber: occurrence.occurrenceNumber
-      }
-    })
+      })
+      .returning())
     childBookings.push(childBooking)
   }
 
@@ -323,10 +329,11 @@ export async function createRecurringBookings(
  */
 export async function getRecurringSeriesBookings(bookingId: number): Promise<Booking[]> {
   // First, check if this is a parent or child booking
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: { recurringPattern: true }
-  })
+  const [booking] = await db
+    .select()
+    .from(schema.bookings)
+    .where(eq(schema.bookings.id, bookingId))
+    .limit(1)
 
   if (!booking) {
     throw createError({
@@ -339,22 +346,14 @@ export async function getRecurringSeriesBookings(bookingId: number): Promise<Boo
   const parentId = booking.parentBookingId || booking.id
 
   // Get all bookings in the series
-  const allBookings = await prisma.booking.findMany({
-    where: {
-      OR: [
-        { id: parentId },
-        { parentBookingId: parentId }
-      ]
-    },
-    include: {
-      user: true,
-      room: true,
-      externalVenue: true
-    },
-    orderBy: {
-      occurrenceNumber: 'asc'
-    }
-  })
+  const allBookings = await db
+    .select()
+    .from(schema.bookings)
+    .where(or(
+      eq(schema.bookings.id, parentId),
+      eq(schema.bookings.parentBookingId, parentId)
+    ))
+    .orderBy(asc(schema.bookings.occurrenceNumber))
 
   return allBookings
 }

@@ -1,8 +1,8 @@
 /**
  * List local user mirrors. Admin only. `search` matches name and email.
  */
-import prisma from '~~/server/database'
-import type { Prisma } from '@prisma/client'
+import { db, schema } from '@nuxthub/db'
+import { count, desc, eq, like, or } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -49,48 +49,30 @@ export default defineEventHandler(async (event) => {
   // Require admin authentication
   await requireAdmin(event)
 
-  const db = prisma
-
   // Parse query parameters. Roles now live in the central auth service —
   // this mirror table has no role column to filter by.
   const query = getQuery(event)
   const searchFilter = query.search as string | undefined
 
-  // Build where clause
-  const where: Prisma.UserWhereInput = {}
+  const where = searchFilter
+    ? or(
+        like(schema.users.name, `%${searchFilter}%`),
+        like(schema.users.email, `%${searchFilter}%`)
+      )
+    : undefined
 
-  if (searchFilter) {
-    where.OR = [
-      { name: { contains: searchFilter } },
-      { email: { contains: searchFilter } }
-    ]
-  }
-
-  // Fetch users with booking count
-  const users = await db.user.findMany({
-    where,
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      createdAt: true,
-      _count: {
-        select: {
-          bookings: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: 'desc'
-    }
-  })
-
-  // Transform to include bookingCount
-  return users.map(user => ({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    createdAt: user.createdAt,
-    bookingCount: user._count.bookings
-  }))
+  // Column allow-listed: the mirror also holds notification settings.
+  return await db
+    .select({
+      id: schema.users.id,
+      email: schema.users.email,
+      name: schema.users.name,
+      createdAt: schema.users.createdAt,
+      bookingCount: count(schema.bookings.id)
+    })
+    .from(schema.users)
+    .leftJoin(schema.bookings, eq(schema.bookings.userId, schema.users.id))
+    .where(where)
+    .groupBy(schema.users.id)
+    .orderBy(desc(schema.users.createdAt))
 })

@@ -3,7 +3,8 @@
  * it — there is no deactivated state, unlike rooms.
  */
 
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { count, eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -54,14 +55,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check if venue exists
-  const venue = await prisma.externalVenue.findUnique({
-    where: { id },
-    include: {
-      _count: {
-        select: { bookings: true }
-      }
-    }
-  })
+  const venue = firstRow(await db
+    .select({ id: schema.externalVenues.id })
+    .from(schema.externalVenues)
+    .where(eq(schema.externalVenues.id, id))
+    .limit(1))
 
   if (!venue) {
     throw createError({
@@ -71,17 +69,21 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check if venue has bookings
-  if (venue._count.bookings > 0) {
+  const bookings = firstRow(await db
+    .select({ value: count() })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.externalVenueId, id)))
+
+  const bookingCount = bookings?.value ?? 0
+  if (bookingCount > 0) {
     throw createError({
       statusCode: 400,
-      message: `Cannot delete venue with ${venue._count.bookings} associated booking(s). Please reassign or cancel bookings first.`
+      message: `Cannot delete venue with ${bookingCount} associated booking(s). Please reassign or cancel bookings first.`
     })
   }
 
   // Hard delete - venues can be deleted if no bookings exist
-  await prisma.externalVenue.delete({
-    where: { id }
-  })
+  await db.delete(schema.externalVenues).where(eq(schema.externalVenues.id, id))
 
   return { message: 'Venue deleted successfully' }
 })

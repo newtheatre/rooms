@@ -3,7 +3,8 @@
  */
 
 import { createVenueSchema } from '../../utils/validation'
-import prisma from '../../database'
+import { db, schema } from '@nuxthub/db'
+import { count, eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -83,31 +84,28 @@ export default defineEventHandler(async (event) => {
   if (!validation.success) {
     throw createError({
       statusCode: 400,
-      message: validation.error.issues[0].message
+      message: validation.error.issues[0]?.message ?? 'Invalid venue'
     })
   }
 
   // Check if venue exists
-  const existing = await prisma.externalVenue.findUnique({ where: { id } })
-  if (!existing) {
+  const venue = firstRow(await db
+    .update(schema.externalVenues)
+    .set(validation.data)
+    .where(eq(schema.externalVenues.id, id))
+    .returning())
+
+  if (!venue) {
     throw createError({
       statusCode: 404,
       message: 'Venue not found'
     })
   }
 
-  const venue = await prisma.externalVenue.update({
-    where: { id },
-    data: validation.data,
-    include: {
-      _count: {
-        select: { bookings: true }
-      }
-    }
-  })
+  const bookings = firstRow(await db
+    .select({ value: count() })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.externalVenueId, id)))
 
-  return {
-    ...venue,
-    bookingCount: venue._count.bookings
-  }
+  return { ...venue, bookingCount: bookings?.value ?? 0 }
 })

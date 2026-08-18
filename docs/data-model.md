@@ -1,10 +1,17 @@
 # Data model
 
-The schema is `prisma/schema.prisma`; this document is the reference that used to live in its
-comments. Prisma with the D1 adapter — the one deliberate divergence from the estate, which is
-otherwise Drizzle.
+The schema is `server/db/schema/`, one file per domain area; this document is the reference that
+does not fit in its comments. Drizzle through NuxtHub's `hub:db` layer, as the rest of the estate.
 
-Table names are snake_case via `@@map`; model fields are camelCase.
+Table names are snake_case, given explicitly to each column; the TypeScript fields are camelCase.
+
+Two storage details are inherited from the Prisma schema these tables were created by, and both
+matter when reading or writing them
+([ADR-0001](decisions/0001-drizzle-with-a-prisma-baseline.md)):
+
+- **Timestamps are integer milliseconds** since the epoch, declared `DATETIME` in the live DDL.
+  Drizzle maps them with `{ mode: 'timestamp_ms' }`, so application code sees a `Date`.
+- **Booleans are integer 0/1**, declared `BOOLEAN`. Drizzle maps them with `{ mode: 'boolean' }`.
 
 ## users
 

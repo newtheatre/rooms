@@ -3,7 +3,8 @@
  *
  * Body: `{ bookingIds: number[] }`. Notifications are grouped by user.
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { inArray } from 'drizzle-orm'
 import { notifyBulkBookingUpdates, formatBookingDateTime } from '~~/server/utils/notifications'
 import { z } from 'zod'
 
@@ -29,15 +30,12 @@ export default defineEventHandler(async (event) => {
 
   const { bookingIds } = validation.data
 
-  // Fetch all bookings to verify they exist and get user info
-  const bookingsToDelete = await prisma.booking.findMany({
-    where: {
-      id: { in: bookingIds }
-    },
-    include: {
-      user: true
-    }
-  })
+  // Chunked: an IN list of the full 100 ids would bind D1's whole parameter
+  // budget in one statement (CLAUDE.md invariant 10).
+  const bookingsToDelete = await chunkedByIds(bookingIds, ids => db
+    .select()
+    .from(schema.bookings)
+    .where(inArray(schema.bookings.id, ids)))
 
   if (bookingsToDelete.length !== bookingIds.length) {
     const foundIds = new Set(bookingsToDelete.map(b => b.id))
@@ -53,25 +51,29 @@ export default defineEventHandler(async (event) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const notifications: Array<{ user: any, booking: any, message: string }> = []
 
+  const usersById = await loadUsersByIds(
+    bookingsToDelete.map(b => b.userId).filter((id): id is string => Boolean(id))
+  )
+
   for (const booking of bookingsToDelete) {
-    if (booking.user) {
+    const bookingUser = booking.userId ? usersById.get(booking.userId) : undefined
+    if (bookingUser) {
       const bookingDateTime = formatBookingDateTime(booking)
       const message = `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled by an administrator.`
 
       notifications.push({
-        user: booking.user,
+        user: bookingUser,
         booking,
         message
       })
     }
   }
 
-  // Delete all bookings
-  await prisma.booking.deleteMany({
-    where: {
-      id: { in: bookingIds }
-    }
-  })
+  // Delete all bookings, chunked for the same reason as the read above.
+  await chunkedByIds(bookingIds, ids => db
+    .delete(schema.bookings)
+    .where(inArray(schema.bookings.id, ids))
+    .returning({ id: schema.bookings.id }))
 
   // Send all notifications grouped by user (one email per user with all their deletions)
   await notifyBulkBookingUpdates(notifications).catch((err) => {

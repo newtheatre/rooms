@@ -2,8 +2,9 @@
  * List bookings. Admins see all; a standard user sees only their own, scoped
  * server-side rather than by a query parameter.
  */
-import prisma from '~~/server/database'
-import type { Prisma } from '@prisma/client'
+import { schema } from '@nuxthub/db'
+import { and, desc, eq, gte, lte } from 'drizzle-orm'
+import { BOOKING_STATUSES, type BookingStatus } from '~~/server/db/schema/booking'
 
 defineRouteMeta({
   openAPI: {
@@ -74,8 +75,6 @@ export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)
 
-  const db = prisma
-
   // Parse query parameters
   const query = getQuery(event)
   const statusFilter = query.status as string | undefined
@@ -83,51 +82,19 @@ export default defineEventHandler(async (event) => {
   const endDate = query.endDate as string | undefined
   const roomId = query.roomId as string | undefined
 
-  // Build where clause
-  const where: Prisma.BookingWhereInput = {}
+  const isValidStatus = statusFilter
+    && (BOOKING_STATUSES as readonly string[]).includes(statusFilter)
 
-  // Filter by user if not admin
-  if (!hasRole(user, 'rooms', 'ADMIN')) {
-    where.userId = user.id
-  }
+  const roomIdNum = roomId ? Number.parseInt(roomId) : Number.NaN
 
-  // Apply status filter
-  if (statusFilter && ['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'].includes(statusFilter)) {
-    where.status = statusFilter as 'PENDING' | 'CONFIRMED' | 'AWAITING_EXTERNAL' | 'REJECTED' | 'CANCELLED'
-  }
+  const where = and(
+    // Non-admins only ever see their own bookings.
+    hasRole(user, 'rooms', 'ADMIN') ? undefined : eq(schema.bookings.userId, user.id),
+    isValidStatus ? eq(schema.bookings.status, statusFilter as BookingStatus) : undefined,
+    startDate ? gte(schema.bookings.startTime, new Date(startDate)) : undefined,
+    endDate ? lte(schema.bookings.endTime, new Date(endDate)) : undefined,
+    Number.isNaN(roomIdNum) ? undefined : eq(schema.bookings.roomId, roomIdNum)
+  )
 
-  // Apply date filters
-  if (startDate) {
-    where.startTime = { gte: new Date(startDate) }
-  }
-  if (endDate) {
-    where.endTime = { lte: new Date(endDate) }
-  }
-
-  // Apply room filter
-  if (roomId) {
-    const roomIdNum = Number.parseInt(roomId)
-    if (!Number.isNaN(roomIdNum)) {
-      where.roomId = roomIdNum
-    }
-  }
-
-  // Fetch bookings with relations
-  const bookings = await db.booking.findMany({
-    where,
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      },
-      room: true,
-      externalVenue: true
-    },
-    orderBy: { startTime: 'desc' }
-  })
-
-  return bookings
+  return await findBookings(where, [desc(schema.bookings.startTime)])
 })

@@ -2,7 +2,8 @@
  * GET /api/rooms/:id — one room. Admin only.
  */
 
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { count, eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -58,14 +59,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const room = await prisma.room.findUnique({
-    where: { id },
-    include: {
-      _count: {
-        select: { bookings: true }
-      }
-    }
-  })
+  const room = firstRow(await db
+    .select({
+      id: schema.rooms.id,
+      name: schema.rooms.name,
+      description: schema.rooms.description,
+      capacity: schema.rooms.capacity,
+      isActive: schema.rooms.isActive,
+      createdAt: schema.rooms.createdAt,
+      bookingCount: count(schema.bookings.id)
+    })
+    .from(schema.rooms)
+    .leftJoin(schema.bookings, eq(schema.bookings.roomId, schema.rooms.id))
+    .where(eq(schema.rooms.id, id))
+    .groupBy(schema.rooms.id))
 
   if (!room) {
     throw createError({
@@ -74,8 +81,5 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return {
-    ...room,
-    bookingCount: room._count.bookings
-  }
+  return room
 })

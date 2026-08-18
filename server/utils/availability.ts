@@ -3,8 +3,19 @@
  * AWAITING_EXTERNAL — docs/data-model.md#occupancy
  */
 
-import type { Booking, Room, ExternalVenue } from '@prisma/client'
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { and, asc, eq, gt, lt, ne, inArray } from 'drizzle-orm'
+
+const OCCUPYING_STATUSES = ['CONFIRMED', 'PENDING', 'AWAITING_EXTERNAL'] as const
+
+type Booking = typeof schema.bookings.$inferSelect
+type Room = typeof schema.rooms.$inferSelect
+type ExternalVenue = typeof schema.externalVenues.$inferSelect
+
+/** The conflicting booking plus who holds it, for the 409 payload. */
+export type Conflict = Booking & {
+  user: { id: string, name: string, email: string } | null
+}
 
 /** Half-open intervals: touching end-to-start is not an overlap. */
 export function hasTimeOverlap(
@@ -16,47 +27,47 @@ export function hasTimeOverlap(
   return start1 < end2 && end1 > start2
 }
 
+/** Shared by both space kinds; only the space predicate differs. */
+async function findConflicts(
+  spacePredicate: ReturnType<typeof eq>,
+  startTime: Date,
+  endTime: Date,
+  excludeBookingId?: number
+): Promise<Conflict[]> {
+  const rows = await db
+    .select({ booking: schema.bookings, user: schema.users })
+    .from(schema.bookings)
+    .leftJoin(schema.users, eq(schema.bookings.userId, schema.users.id))
+    .where(and(
+      spacePredicate,
+      excludeBookingId ? ne(schema.bookings.id, excludeBookingId) : undefined,
+      inArray(schema.bookings.status, [...OCCUPYING_STATUSES]),
+      lt(schema.bookings.startTime, endTime),
+      gt(schema.bookings.endTime, startTime)
+    ))
+    .orderBy(asc(schema.bookings.startTime))
+
+  return rows.map(({ booking, user }) => ({
+    ...booking,
+    user: user ? { id: user.id, name: user.name, email: user.email } : null
+  }))
+}
+
 /** `excludeBookingId` omits a booking's own rows, for editing it in place. */
 export async function checkRoomAvailability(
   roomId: number,
   startTime: Date,
   endTime: Date,
   excludeBookingId?: number
-): Promise<{
-  isAvailable: boolean
-  conflicts: Booking[]
-}> {
-  const conflicts = await prisma.booking.findMany({
-    where: {
-      roomId,
-      id: excludeBookingId ? { not: excludeBookingId } : undefined,
-      status: {
-        in: ['CONFIRMED', 'PENDING', 'AWAITING_EXTERNAL']
-      },
-      // Check for time overlap
-      AND: [
-        { startTime: { lt: endTime } },
-        { endTime: { gt: startTime } }
-      ]
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      }
-    },
-    orderBy: {
-      startTime: 'asc'
-    }
-  })
+): Promise<{ isAvailable: boolean, conflicts: Conflict[] }> {
+  const conflicts = await findConflicts(
+    eq(schema.bookings.roomId, roomId),
+    startTime,
+    endTime,
+    excludeBookingId
+  )
 
-  return {
-    isAvailable: conflicts.length === 0,
-    conflicts
-  }
+  return { isAvailable: conflicts.length === 0, conflicts }
 }
 
 /** As checkRoomAvailability, for an external venue. */
@@ -65,40 +76,15 @@ export async function checkVenueAvailability(
   startTime: Date,
   endTime: Date,
   excludeBookingId?: number
-): Promise<{
-  isAvailable: boolean
-  conflicts: Booking[]
-}> {
-  const conflicts = await prisma.booking.findMany({
-    where: {
-      externalVenueId,
-      id: excludeBookingId ? { not: excludeBookingId } : undefined,
-      status: {
-        in: ['CONFIRMED', 'PENDING', 'AWAITING_EXTERNAL']
-      },
-      AND: [
-        { startTime: { lt: endTime } },
-        { endTime: { gt: startTime } }
-      ]
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      }
-    },
-    orderBy: {
-      startTime: 'asc'
-    }
-  })
+): Promise<{ isAvailable: boolean, conflicts: Conflict[] }> {
+  const conflicts = await findConflicts(
+    eq(schema.bookings.externalVenueId, externalVenueId),
+    startTime,
+    endTime,
+    excludeBookingId
+  )
 
-  return {
-    isAvailable: conflicts.length === 0,
-    conflicts
-  }
+  return { isAvailable: conflicts.length === 0, conflicts }
 }
 
 /** Every room, split into available and unavailable for the range. */
@@ -111,19 +97,16 @@ export async function getAvailableRooms(
   }
 ): Promise<{
   available: Room[]
-  unavailable: Array<Room & { conflicts: Booking[] }>
+  unavailable: Array<Room & { conflicts: Conflict[] }>
 }> {
-  const rooms = await prisma.room.findMany({
-    where: {
-      isActive: options?.includeInactive ? undefined : true
-    },
-    orderBy: {
-      name: 'asc'
-    }
-  })
+  const rooms = await db
+    .select()
+    .from(schema.rooms)
+    .where(options?.includeInactive ? undefined : eq(schema.rooms.isActive, true))
+    .orderBy(asc(schema.rooms.name))
 
   const available: Room[] = []
-  const unavailable: Array<Room & { conflicts: Booking[] }> = []
+  const unavailable: Array<Room & { conflicts: Conflict[] }> = []
 
   for (const room of rooms) {
     const { isAvailable, conflicts } = await checkRoomAvailability(
@@ -152,17 +135,15 @@ export async function getAvailableVenues(
   }
 ): Promise<{
   available: ExternalVenue[]
-  unavailable: Array<ExternalVenue & { conflicts: Booking[] }>
+  unavailable: Array<ExternalVenue & { conflicts: Conflict[] }>
 }> {
-  const venues = await prisma.externalVenue.findMany({
-    orderBy: [
-      { building: 'asc' },
-      { roomName: 'asc' }
-    ]
-  })
+  const venues = await db
+    .select()
+    .from(schema.externalVenues)
+    .orderBy(asc(schema.externalVenues.building), asc(schema.externalVenues.roomName))
 
   const available: ExternalVenue[] = []
-  const unavailable: Array<ExternalVenue & { conflicts: Booking[] }> = []
+  const unavailable: Array<ExternalVenue & { conflicts: Conflict[] }> = []
 
   for (const venue of venues) {
     const { isAvailable, conflicts } = await checkVenueAvailability(
@@ -183,7 +164,7 @@ export async function getAvailableVenues(
 }
 
 /**
- * Throws 409 if the space is taken. `allowConflicts` is the admin override —
+ * Throws 409 if the space is taken. `allowConflicts` is the admin override:
  * double-booking deliberately, which the UI asks about first.
  */
 export async function validateBookingAvailability(

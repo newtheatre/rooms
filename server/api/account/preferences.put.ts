@@ -2,7 +2,8 @@
  * PUT /api/account/preferences — update the caller's notification channels and
  * types. Account-security mail ignores both.
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -49,27 +50,25 @@ export default defineEventHandler(async (event) => {
   // Require authentication
   const sessionUser = await requireAuth(event)
 
-  const db = prisma
-
   // Parse and validate request body
   const data = await readValidatedBody(event, updatePreferencesSchema.parse)
 
   // Update user preferences
-  const updatedUser = await db.user.update({
-    where: { id: sessionUser.id },
-    data: {
+  const updatedUser = requireRow(await db
+    .update(schema.users)
+    .set({
       ...(data.notificationChannels && {
         notificationChannels: JSON.stringify(data.notificationChannels)
       }),
       ...(data.notificationPreferences && {
         notificationPreferences: JSON.stringify(data.notificationPreferences)
       })
-    },
-    select: {
-      notificationChannels: true,
-      notificationPreferences: true
-    }
-  })
+    })
+    .where(eq(schema.users.id, sessionUser.id))
+    .returning({
+      notificationChannels: schema.users.notificationChannels,
+      notificationPreferences: schema.users.notificationPreferences
+    }))
 
   // Return parsed JSON
   return {

@@ -3,7 +3,8 @@
  * for inactive ones.
  */
 
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { asc, count, eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -58,31 +59,33 @@ export default defineEventHandler(async (event) => {
   const isAdmin = hasRole(user, 'rooms', 'ADMIN')
   const showInactive = isAdmin && includeInactive
 
-  const rooms = await prisma.room.findMany({
-    where: showInactive ? {} : { isActive: true },
-    include: {
-      _count: isAdmin
-        ? {
-            select: { bookings: true }
-          }
-        : undefined
-    },
-    orderBy: { name: 'asc' }
-  })
-
-  // Return full data for admins, limited data for regular users
-  if (isAdmin) {
-    return rooms.map(room => ({
-      ...room,
-      bookingCount: room._count?.bookings || 0
-    }))
-  } else {
-    // Regular users only get basic info
-    return rooms.map(room => ({
-      id: room.id,
-      name: room.name,
-      description: room.description,
-      capacity: room.capacity
-    }))
+  // Non-admins get an explicit column list, never the whole row.
+  if (!isAdmin) {
+    return await db
+      .select({
+        id: schema.rooms.id,
+        name: schema.rooms.name,
+        description: schema.rooms.description,
+        capacity: schema.rooms.capacity
+      })
+      .from(schema.rooms)
+      .where(eq(schema.rooms.isActive, true))
+      .orderBy(asc(schema.rooms.name))
   }
+
+  return await db
+    .select({
+      id: schema.rooms.id,
+      name: schema.rooms.name,
+      description: schema.rooms.description,
+      capacity: schema.rooms.capacity,
+      isActive: schema.rooms.isActive,
+      createdAt: schema.rooms.createdAt,
+      bookingCount: count(schema.bookings.id)
+    })
+    .from(schema.rooms)
+    .leftJoin(schema.bookings, eq(schema.bookings.roomId, schema.rooms.id))
+    .where(showInactive ? undefined : eq(schema.rooms.isActive, true))
+    .groupBy(schema.rooms.id)
+    .orderBy(asc(schema.rooms.name))
 })

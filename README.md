@@ -14,15 +14,15 @@ session.
 | Framework | Nuxt 4, Vue 3, Nuxt UI 4 |
 | Server runtime | Nitro on `cloudflare_module` — a Cloudflare Worker, not Node |
 | Database | SQLite: a local file in development, Cloudflare D1 in production |
-| ORM | **Prisma** with the D1 adapter |
+| ORM | Drizzle, via NuxtHub's `hub:db` layer |
 | Auth | `nuxt-auth-utils`, reading the estate's sealed `nnt-session` cookie |
 | Email | Resend |
 | Content | `@nuxt/content` v3 for the user guides under `content/docs/` |
 
-Prisma is the one deliberate divergence from the estate, which is otherwise Drizzle
-([proscenium](https://github.com/newtheatre/proscenium), stage-door, rehearsal). It predates the
-convention and nothing depends on changing it; be aware that migration and schema advice from the
-other repos does not transfer.
+This app used Prisma until 2026-08-18; it now matches the rest of the estate
+([proscenium](https://github.com/newtheatre/proscenium), stage-door, rehearsal). The existing
+production tables were kept as they were rather than rebuilt, which is worth understanding before
+you touch a migration: [ADR-0001](docs/decisions/0001-drizzle-with-a-prisma-baseline.md).
 
 ## Quick start
 
@@ -74,9 +74,10 @@ Full integration story: stage-door `docs/integrating-an-app.md`.
 ```bash
 bun run dev        # local dev server
 bun run lint       # eslint
-bun run typecheck  # nuxt typecheck — see Known gaps
+bun run typecheck  # nuxt typecheck
 bun run build      # the production Worker bundle
-bunx prisma studio # inspect the local database
+bun run db:generate # generate a migration from schema changes (review the SQL!)
+bun run db:migrate  # apply migrations to the local database
 ```
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint and build on every push and PR.
@@ -86,16 +87,15 @@ Cloudflare Workers Builds deploys `main`; deployment is not CI's job.
 
 Recorded here rather than left to be discovered:
 
-- **`bun run typecheck` does not pass** — 15 pre-existing errors, so CI cannot gate on it yet. The
-  other three estate repos do.
 - **There are no tests**, and no test harness. proscenium is in the same position; rehearsal and
   stage-door are not.
 - **Web push is not implemented.** `/api/notifications/subscribe` records a subscription and the
   settings page offers the PUSH channel, but `sendPushNotification` logs and returns
   (`server/utils/notifications.ts`). Selecting PUSH delivers nothing.
-- **No ADRs.** `docs/` now carries the data model and API reference, but there is no decision
-  record anywhere for choices specific to this app. Estate-wide decisions live in stage-door's
-  `docs/decisions/`.
+- **`getAvailableRooms` and `getAvailableVenues` query per space**, so listing availability across
+  N rooms costs N+1 queries. Correct, but wasteful on D1, which bills per query.
+
+`bun run typecheck` now passes and CI could gate on it; it currently does not.
 
 Note that `content/docs/` is **user-facing** guidance published to the site. Engineering
 documentation lives in [`docs/`](docs/).
@@ -106,6 +106,7 @@ documentation lives in [`docs/`](docs/).
 | --- | --- |
 | [docs/data-model.md](docs/data-model.md) | you're changing the schema, or need the booking status lifecycle |
 | [docs/api-reference.md](docs/api-reference.md) | you're calling or changing an endpoint |
+| [docs/decisions/](docs/decisions/) | you're about to ask "why on earth is it done this way?" |
 | stage-door `docs/integrating-an-app.md` | you're touching anything to do with sessions, roles or the GDPR hooks |
 
 ## Comments
