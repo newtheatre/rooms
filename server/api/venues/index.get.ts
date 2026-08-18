@@ -3,7 +3,8 @@
  * booking counts. Filters: campus, building.
  */
 
-import prisma from '../../database'
+import { db, schema } from '@nuxthub/db'
+import { and, asc, count, eq, like } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -61,47 +62,47 @@ export default defineEventHandler(async (event) => {
   const campus = query.campus as string | undefined
   const building = query.building as string | undefined
 
-  interface VenueWhere {
-    campus?: string
-    building?: { contains: string }
-  }
+  const where = and(
+    campus ? eq(schema.externalVenues.campus, campus) : undefined,
+    building ? like(schema.externalVenues.building, `%${building}%`) : undefined
+  )
 
-  const where: VenueWhere = {}
-  if (campus) where.campus = campus
-  if (building) where.building = { contains: building }
+  const order = [
+    asc(schema.externalVenues.campus),
+    asc(schema.externalVenues.building),
+    asc(schema.externalVenues.roomName)
+  ]
 
   const isAdmin = hasRole(user, 'rooms', 'ADMIN')
 
-  const venues = await prisma.externalVenue.findMany({
-    where,
-    include: {
-      _count: isAdmin
-        ? {
-            select: { bookings: true }
-          }
-        : undefined
-    },
-    orderBy: [
-      { campus: 'asc' },
-      { building: 'asc' },
-      { roomName: 'asc' }
-    ]
-  })
-
-  // Return full data for admins, limited data for regular users
-  if (isAdmin) {
-    return venues.map(venue => ({
-      ...venue,
-      bookingCount: venue._count?.bookings || 0
-    }))
-  } else {
-    // Regular users only get basic info
-    return venues.map(venue => ({
-      id: venue.id,
-      campus: venue.campus,
-      building: venue.building,
-      roomName: venue.roomName,
-      contactDetails: venue.contactDetails
-    }))
+  // Non-admins get an explicit column list, never the whole row.
+  if (!isAdmin) {
+    return await db
+      .select({
+        id: schema.externalVenues.id,
+        campus: schema.externalVenues.campus,
+        building: schema.externalVenues.building,
+        roomName: schema.externalVenues.roomName,
+        contactDetails: schema.externalVenues.contactDetails
+      })
+      .from(schema.externalVenues)
+      .where(where)
+      .orderBy(...order)
   }
+
+  return await db
+    .select({
+      id: schema.externalVenues.id,
+      campus: schema.externalVenues.campus,
+      building: schema.externalVenues.building,
+      roomName: schema.externalVenues.roomName,
+      contactDetails: schema.externalVenues.contactDetails,
+      createdAt: schema.externalVenues.createdAt,
+      bookingCount: count(schema.bookings.id)
+    })
+    .from(schema.externalVenues)
+    .leftJoin(schema.bookings, eq(schema.bookings.externalVenueId, schema.externalVenues.id))
+    .where(where)
+    .groupBy(schema.externalVenues.id)
+    .orderBy(...order)
 })

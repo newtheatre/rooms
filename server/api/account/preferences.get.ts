@@ -2,7 +2,8 @@
  * GET /api/account/preferences — the caller's notification channels and types.
  * Both are stored as JSON strings and parsed here.
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -34,16 +35,15 @@ export default defineEventHandler(async (event) => {
   // Require authentication
   const sessionUser = await requireAuth(event)
 
-  const db = prisma
-
   // Fetch user preferences from database
-  const user = await db.user.findUnique({
-    where: { id: sessionUser.id },
-    select: {
-      notificationChannels: true,
-      notificationPreferences: true
-    }
-  })
+  const user = firstRow(await db
+    .select({
+      notificationChannels: schema.users.notificationChannels,
+      notificationPreferences: schema.users.notificationPreferences
+    })
+    .from(schema.users)
+    .where(eq(schema.users.id, sessionUser.id))
+    .limit(1))
 
   if (!user) {
     throw createError({

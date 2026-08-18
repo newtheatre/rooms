@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { z } from 'zod'
+import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import type { CalendarDate } from '@internationalized/date'
 import { DateFormatter } from '@internationalized/date'
@@ -457,7 +457,7 @@ watch(() => state.externalVenueId, (newVal) => {
                         size="xs"
                         variant="ghost"
                         :color="showUnavailableRooms ? 'primary' : 'neutral'"
-                        @click="showUnavailableRooms = !showUnavailableRooms"
+                        @click="() => { showUnavailableRooms = !showUnavailableRooms }"
                       >
                         {{ showUnavailableRooms ? 'Hide' : 'Show' }} unavailable
                       </UButton>
@@ -552,7 +552,7 @@ watch(() => state.externalVenueId, (newVal) => {
             label="Cancel"
             color="neutral"
             variant="subtle"
-            @click="open = false"
+            @click="() => { open = false }"
           />
           <UButton
             label="Create Booking"

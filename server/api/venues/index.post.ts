@@ -2,7 +2,7 @@
  * POST /api/venues — create an external venue. Admin only.
  */
 
-import prisma from '../../database'
+import { db, schema } from '@nuxthub/db'
 
 defineRouteMeta({
   openAPI: {
@@ -61,23 +61,13 @@ export default defineEventHandler(async (event) => {
 
   const { campus, building, roomName, contactDetails } = body
 
-  const venue = await prisma.externalVenue.create({
-    data: {
-      campus,
-      building,
-      roomName,
-      contactDetails
-    },
-    include: {
-      _count: {
-        select: { bookings: true }
-      }
-    }
-  })
+  const venue = requireRow(await db
+    .insert(schema.externalVenues)
+    .values({ campus, building, roomName, contactDetails })
+    .returning())
 
   setResponseStatus(event, 201)
-  return {
-    ...venue,
-    bookingCount: venue._count.bookings
-  }
+
+  // A new venue has no bookings yet.
+  return { ...venue, bookingCount: 0 }
 })

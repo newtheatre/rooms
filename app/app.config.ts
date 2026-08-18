@@ -1,3 +1,5 @@
+import type { ButtonProps } from '@nuxt/ui'
+
 export default defineAppConfig({
   ui: {
     colors: {
@@ -17,7 +19,8 @@ export default defineAppConfig({
     },
     search: true,
     colorMode: true,
-    links: []
+    // Typed so the docs layout can spread each entry onto a UButton.
+    links: [] as ButtonProps[]
   },
   toc: {
     title: 'Table of Contents',

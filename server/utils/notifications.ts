@@ -4,7 +4,8 @@
  * PUSH is not implemented — see sendPushNotification.
  */
 
-import type { User, Booking } from '@prisma/client'
+import type { User } from '~~/server/db/schema/user'
+import type { Booking } from '~~/server/db/schema/booking'
 import { getResend } from './resend'
 
 export type NotificationChannel = 'EMAIL' | 'PUSH'
@@ -187,12 +188,15 @@ export async function notifyBulkBookingUpdates(
 
     const channels = getNotificationChannels(user)
 
-    const subject = userUpdates.length === 1
-      ? `Booking Update: ${userUpdates[0].booking.eventTitle}`
+    // The map is only ever populated with a non-empty array.
+    const only = userUpdates.length === 1 ? userUpdates[0]! : null
+
+    const subject = only
+      ? `Booking Update: ${only.booking.eventTitle}`
       : `${userUpdates.length} Booking Updates`
 
-    const emailContent = userUpdates.length === 1
-      ? userUpdates[0].message
+    const emailContent = only
+      ? only.message
       : `The following bookings have been updated:\n\n${userUpdates.map((u, i) => `${i + 1}. ${u.message}`).join('\n\n')}`
 
     if (channels.includes('EMAIL')) {
@@ -200,8 +204,8 @@ export async function notifyBulkBookingUpdates(
     }
 
     if (channels.includes('PUSH')) {
-      const pushMessage = userUpdates.length === 1
-        ? userUpdates[0].message
+      const pushMessage = only
+        ? only.message
         : `${userUpdates.length} of your bookings have been updated`
 
       notifications.push(sendPushNotification(

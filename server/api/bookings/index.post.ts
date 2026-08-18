@@ -2,7 +2,8 @@
  * Create a booking request. Admins may also set userId, a space and a status —
  * docs/api-reference.md#post-apibookings
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
 import { notifyBookingUpdate, getNotificationPreferences, sendBatchEmail, formatBookingDateTime } from '~~/server/utils/notifications'
 
 defineRouteMeta({
@@ -55,8 +56,6 @@ defineRouteMeta({
 export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)
-
-  const db = prisma
 
   // Check if user is admin
   const isAdmin = hasRole(user, 'rooms', 'ADMIN')
@@ -131,18 +130,12 @@ export default defineEventHandler(async (event) => {
     bookingCount = 1 + result.childBookings.length
 
     // Fetch with relations
-    booking = await db.booking.findUnique({
-      where: { id: result.parentBooking.id },
-      include: {
-        user: true,
-        room: true,
-        externalVenue: true
-      }
-    })
+    booking = await findBooking(result.parentBooking.id)
   } else {
     // Create single booking
-    booking = await db.booking.create({
-      data: {
+    const created = requireRow(await db
+      .insert(schema.bookings)
+      .values({
         userId: bookingUserId,
         eventTitle: validatedData.eventTitle,
         numberOfAttendees: validatedData.numberOfAttendees,
@@ -152,13 +145,10 @@ export default defineEventHandler(async (event) => {
         status,
         roomId,
         externalVenueId
-      },
-      include: {
-        user: true,
-        room: true,
-        externalVenue: true
-      }
-    })
+      })
+      .returning())
+
+    booking = await findBooking(created.id)
   }
 
   // Ensure booking was created
@@ -169,8 +159,13 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // The notification needs the columns the booking response deliberately omits.
+  const notifyUser = booking.userId
+    ? firstRow(await db.select().from(schema.users).where(eq(schema.users.id, booking.userId)).limit(1))
+    : undefined
+
   // Send confirmation notification
-  if (booking.user) {
+  if (notifyUser) {
     const bookingDateTime = formatBookingDateTime(booking)
     const recurringNote = bookingCount > 1 ? ` (${bookingCount} occurrences)` : ''
     const message = status === 'CONFIRMED'
@@ -180,7 +175,7 @@ export default defineEventHandler(async (event) => {
         : `Your booking request "${booking.eventTitle}" (${bookingDateTime}) has been submitted and is pending review${recurringNote}.`
 
     // Send notification
-    await notifyBookingUpdate(booking.user, booking, message).catch((err) => {
+    await notifyBookingUpdate(notifyUser, booking, message).catch((err) => {
       console.error('Failed to send booking creation notification:', err)
     })
   }
@@ -188,9 +183,10 @@ export default defineEventHandler(async (event) => {
   // Notify all admins if this is a new PENDING booking request
   if (status === 'PENDING') {
     // Fetch all admins who have opted in to new booking notifications
-    const allAdmins = await db.user.findMany({
-      where: { isRoomsAdmin: true }
-    })
+    const allAdmins = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.isRoomsAdmin, true))
 
     // Filter admins who want to receive new booking notifications
     const adminsToNotify = allAdmins.filter((admin) => {

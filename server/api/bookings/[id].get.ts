@@ -1,7 +1,6 @@
 /**
  * GET /api/bookings/:id — one booking with its relations. Owner or admin.
  */
-import prisma from '~~/server/database'
 
 defineRouteMeta({
   openAPI: {
@@ -54,8 +53,6 @@ export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)
 
-  const db = prisma
-
   // Parse booking ID from route params
   const id = Number.parseInt(event.context.params?.id || '')
   if (Number.isNaN(id)) {
@@ -66,20 +63,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Fetch booking with relations
-  const booking = await db.booking.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true
-        }
-      },
-      room: true,
-      externalVenue: true
-    }
-  })
+  const booking = await findBooking(id)
 
   if (!booking) {
     throw createError({

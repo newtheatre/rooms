@@ -4,6 +4,7 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/ui',
     '@nuxt/content',
+    '@nuxthub/core',
     '@vueuse/nuxt',
     'nuxt-auth-utils'
   ],
@@ -18,6 +19,17 @@ export default defineNuxtConfig({
         maxAge: 60 * 60 * 24 * 30,
         cookie: { domain: '.newtheatre.org.uk', sameSite: 'lax', secure: true }
       }
+    },
+
+    hub: {
+      db: {
+        dialect: 'sqlite',
+        driver: 'd1', // FIXME: https://github.com/nuxt-hub/core/pull/775 (same as the rest of the estate)
+        connection: { databaseId: '820d8e64-108d-4604-a453-d78595a1e1ef' }
+      },
+      kv: false,
+      cache: false,
+      blob: false
     }
   },
 
@@ -28,7 +40,6 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   content: {
-    experimental: { sqliteConnector: 'native' },
     database: {
       type: 'd1',
       bindingName: 'DB'
@@ -103,6 +114,13 @@ export default defineNuxtConfig({
         }
       }
     }
+  },
+
+  hub: {
+    db: 'sqlite',
+    kv: false,
+    cache: false,
+    blob: false
   },
 
   eslint: {

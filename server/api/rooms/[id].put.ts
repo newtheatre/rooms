@@ -2,7 +2,8 @@
  * PUT /api/rooms/:id — update an internal room. Admin only. Partial body.
  */
 
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { count, eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -76,27 +77,23 @@ export default defineEventHandler(async (event) => {
 
   const body = await readValidatedBody(event, createRoomSchema.partial().parse)
 
-  // Check if room exists
-  const existing = await prisma.room.findUnique({ where: { id } })
-  if (!existing) {
+  const room = firstRow(await db
+    .update(schema.rooms)
+    .set(body)
+    .where(eq(schema.rooms.id, id))
+    .returning())
+
+  if (!room) {
     throw createError({
       statusCode: 404,
       message: 'Room not found'
     })
   }
 
-  const room = await prisma.room.update({
-    where: { id },
-    data: body,
-    include: {
-      _count: {
-        select: { bookings: true }
-      }
-    }
-  })
+  const [bookings] = await db
+    .select({ value: count() })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.roomId, id))
 
-  return {
-    ...room,
-    bookingCount: room._count.bookings
-  }
+  return { ...room, bookingCount: bookings?.value ?? 0 }
 })

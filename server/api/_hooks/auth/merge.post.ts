@@ -1,5 +1,6 @@
-import prisma from '~~/server/database'
-import { z } from 'zod'
+import { db, schema } from '@nuxthub/db'
+import { count, eq } from 'drizzle-orm'
+import * as z from 'zod'
 
 const bodySchema = z.object({
   fromUserId: z.string().min(1),
@@ -19,11 +20,25 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'fromUserId and toUserId must differ' })
   }
 
-  const loser = await prisma.user.findUnique({ where: { id: fromUserId } })
+  const [loser] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, fromUserId))
+    .limit(1)
+
+  const [bookingCount] = await db
+    .select({ value: count() })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.userId, fromUserId))
+
+  const [subscriptionCount] = await db
+    .select({ value: count() })
+    .from(schema.pushSubscriptions)
+    .where(eq(schema.pushSubscriptions.userId, fromUserId))
 
   const counts = {
-    bookings: await prisma.booking.count({ where: { userId: fromUserId } }),
-    pushSubscriptions: await prisma.pushSubscription.count({ where: { userId: fromUserId } })
+    bookings: bookingCount?.value ?? 0,
+    pushSubscriptions: subscriptionCount?.value ?? 0
   }
 
   if (!loser || dryRun) {
@@ -32,25 +47,22 @@ export default defineEventHandler(async (event) => {
 
   // The winner needs a mirror row before rows point at it; ensureLocalUser
   // replaces this placeholder on their next session.
-  await prisma.$transaction([
-    prisma.user.upsert({
-      where: { id: toUserId },
-      update: {},
-      create: {
+  await db.batch([
+    db.insert(schema.users)
+      .values({
         id: toUserId,
         email: `merged-${toUserId}@placeholder.invalid`,
         name: loser.name
-      }
-    }),
-    prisma.booking.updateMany({
-      where: { userId: fromUserId },
-      data: { userId: toUserId }
-    }),
-    prisma.pushSubscription.updateMany({
-      where: { userId: fromUserId },
-      data: { userId: toUserId }
-    }),
-    prisma.user.delete({ where: { id: fromUserId } })
+      })
+      .onConflictDoNothing({ target: schema.users.id }),
+    db.update(schema.bookings)
+      .set({ userId: toUserId })
+      .where(eq(schema.bookings.userId, fromUserId)),
+    db.update(schema.pushSubscriptions)
+      .set({ userId: toUserId })
+      .where(eq(schema.pushSubscriptions.userId, fromUserId)),
+    db.delete(schema.users)
+      .where(eq(schema.users.id, fromUserId))
   ])
 
   return { ok: true, notMirrored: false, counts }

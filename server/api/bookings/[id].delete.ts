@@ -3,7 +3,8 @@
  * owner.
  */
 
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
 import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'
 
 defineRouteMeta({
@@ -55,12 +56,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check if booking exists
-  const booking = await prisma.booking.findUnique({
-    where: { id },
-    include: {
-      user: true
-    }
-  })
+  const booking = await findBooking(id)
 
   if (!booking) {
     throw createError({
@@ -77,23 +73,26 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // The notification needs the columns the booking response deliberately omits.
+  const notifyUser = booking.userId
+    ? firstRow(await db.select().from(schema.users).where(eq(schema.users.id, booking.userId)).limit(1))
+    : undefined
+
   // Send notification before deletion if user exists
-  if (booking.user) {
+  if (notifyUser) {
     const bookingDateTime = formatBookingDateTime(booking)
     const message = hasRole(user, 'rooms', 'ADMIN')
       ? `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled by an administrator.`
       : `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled.`
 
     // Send notification
-    await notifyBookingUpdate(booking.user, booking, message).catch((err) => {
+    await notifyBookingUpdate(notifyUser, booking, message).catch((err) => {
       console.error('Failed to send booking cancellation notification:', err)
     })
   }
 
   // Delete the booking
-  await prisma.booking.delete({
-    where: { id }
-  })
+  await db.delete(schema.bookings).where(eq(schema.bookings.id, id))
 
   return { message: 'Booking deleted successfully' }
 })

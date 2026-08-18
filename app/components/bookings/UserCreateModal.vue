@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { z } from 'zod'
+import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import type { CalendarDate } from '@internationalized/date'
 import { DateFormatter } from '@internationalized/date'
@@ -479,7 +479,7 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
             label="Cancel"
             color="neutral"
             variant="subtle"
-            @click="open = false"
+            @click="() => { open = false }"
           />
           <UButton
             label="Submit Request"

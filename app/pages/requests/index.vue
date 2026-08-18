@@ -412,7 +412,7 @@ function getRowActions(booking: Booking) {
           label="Keep Booking"
           color="neutral"
           variant="subtle"
-          @click="bookingToCancel = null"
+          @click="() => { bookingToCancel = null }"
         />
         <UButton
           label="Cancel Booking"

@@ -2,7 +2,8 @@
  * Register a Web Push subscription, keyed on the unique endpoint.
  * Nothing sends to these: sendPushNotification is a stub.
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -57,15 +58,15 @@ export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)
 
-  const db = prisma
-
   // Parse and validate request body
   const { endpoint, keys } = await readValidatedBody(event, pushSubscriptionSchema.parse)
 
   // Check if subscription already exists
-  const existingSubscription = await db.pushSubscription.findUnique({
-    where: { endpoint }
-  })
+  const existingSubscription = firstRow(await db
+    .select()
+    .from(schema.pushSubscriptions)
+    .where(eq(schema.pushSubscriptions.endpoint, endpoint))
+    .limit(1))
 
   if (existingSubscription) {
     // If it belongs to the same user, return it
@@ -77,14 +78,11 @@ export default defineEventHandler(async (event) => {
     }
 
     // If it belongs to a different user, update it
-    const updatedSubscription = await db.pushSubscription.update({
-      where: { endpoint },
-      data: {
-        userId: user.id,
-        p256dh: keys.p256dh,
-        auth: keys.auth
-      }
-    })
+    const updatedSubscription = requireRow(await db
+      .update(schema.pushSubscriptions)
+      .set({ userId: user.id, p256dh: keys.p256dh, auth: keys.auth })
+      .where(eq(schema.pushSubscriptions.endpoint, endpoint))
+      .returning())
 
     return {
       id: updatedSubscription.id,
@@ -93,14 +91,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // Create new subscription
-  const subscription = await db.pushSubscription.create({
-    data: {
-      userId: user.id,
-      endpoint,
-      p256dh: keys.p256dh,
-      auth: keys.auth
-    }
-  })
+  const subscription = requireRow(await db
+    .insert(schema.pushSubscriptions)
+    .values({ userId: user.id, endpoint, p256dh: keys.p256dh, auth: keys.auth })
+    .returning())
 
   // Set 201 status code
   setResponseStatus(event, 201)

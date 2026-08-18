@@ -1,7 +1,8 @@
 /**
  * GET /api/users/:id — one local user mirror, with their bookings. Admin only.
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { count, desc, eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -50,8 +51,6 @@ export default defineEventHandler(async (event) => {
   // Require admin authentication
   await requireAdmin(event)
 
-  const db = prisma
-
   // Get user ID from route params
   const userId = getRouterParam(event, 'id')
 
@@ -62,34 +61,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Fetch user with bookings
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      createdAt: true,
-      _count: {
-        select: {
-          bookings: true
-        }
-      },
-      bookings: {
-        take: 5,
-        orderBy: {
-          startTime: 'desc'
-        },
-        select: {
-          id: true,
-          eventTitle: true,
-          startTime: true,
-          endTime: true,
-          status: true
-        }
-      }
-    }
-  })
+  // Column allow-listed: the mirror also holds notification settings.
+  const user = firstRow(await db
+    .select({
+      id: schema.users.id,
+      email: schema.users.email,
+      name: schema.users.name,
+      createdAt: schema.users.createdAt
+    })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId))
+    .limit(1))
 
   if (!user) {
     throw createError({
@@ -98,12 +80,30 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const bookings = firstRow(await db
+    .select({ value: count() })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.userId, userId)))
+
+  const recentBookings = await db
+    .select({
+      id: schema.bookings.id,
+      eventTitle: schema.bookings.eventTitle,
+      startTime: schema.bookings.startTime,
+      endTime: schema.bookings.endTime,
+      status: schema.bookings.status
+    })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.userId, userId))
+    .orderBy(desc(schema.bookings.startTime))
+    .limit(5)
+
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     createdAt: user.createdAt,
-    bookingCount: user._count.bookings,
-    recentBookings: user.bookings
+    bookingCount: bookings?.value ?? 0,
+    recentBookings
   }
 })

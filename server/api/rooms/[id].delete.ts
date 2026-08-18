@@ -3,7 +3,8 @@
  * refused once the room has bookings.
  */
 
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { count, eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -63,14 +64,11 @@ export default defineEventHandler(async (event) => {
   const permanent = query.permanent === 'true'
 
   // Check if room exists
-  const room = await prisma.room.findUnique({
-    where: { id },
-    include: {
-      _count: {
-        select: { bookings: true }
-      }
-    }
-  })
+  const room = firstRow(await db
+    .select({ id: schema.rooms.id })
+    .from(schema.rooms)
+    .where(eq(schema.rooms.id, id))
+    .limit(1))
 
   if (!room) {
     throw createError({
@@ -81,7 +79,12 @@ export default defineEventHandler(async (event) => {
 
   if (permanent) {
     // Check if room has bookings
-    if (room._count.bookings > 0) {
+    const [bookings] = await db
+      .select({ value: count() })
+      .from(schema.bookings)
+      .where(eq(schema.bookings.roomId, id))
+
+    if ((bookings?.value ?? 0) > 0) {
       throw createError({
         statusCode: 400,
         message: 'Cannot permanently delete room with existing bookings. Deactivate it instead.'
@@ -89,17 +92,12 @@ export default defineEventHandler(async (event) => {
     }
 
     // Hard delete - permanently remove from database
-    await prisma.room.delete({
-      where: { id }
-    })
+    await db.delete(schema.rooms).where(eq(schema.rooms.id, id))
 
     return { message: 'Room permanently deleted' }
   } else {
     // Soft delete - set isActive to false
-    await prisma.room.update({
-      where: { id },
-      data: { isActive: false }
-    })
+    await db.update(schema.rooms).set({ isActive: false }).where(eq(schema.rooms.id, id))
 
     return { message: 'Room deactivated successfully' }
   }

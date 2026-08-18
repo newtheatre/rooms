@@ -2,7 +2,8 @@
  * POST /api/notifications/unsubscribe — drop a Web Push subscription by
  * endpoint. The caller may only remove their own.
  */
-import prisma from '~~/server/database'
+import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -50,15 +51,15 @@ export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)
 
-  const db = prisma
-
   // Parse and validate request body
   const { endpoint } = await readValidatedBody(event, pushUnsubscribeSchema.parse)
 
   // Find subscription
-  const subscription = await db.pushSubscription.findUnique({
-    where: { endpoint }
-  })
+  const subscription = firstRow(await db
+    .select()
+    .from(schema.pushSubscriptions)
+    .where(eq(schema.pushSubscriptions.endpoint, endpoint))
+    .limit(1))
 
   if (!subscription) {
     throw createError({
@@ -76,9 +77,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Delete subscription
-  await db.pushSubscription.delete({
-    where: { endpoint }
-  })
+  await db.delete(schema.pushSubscriptions).where(eq(schema.pushSubscriptions.endpoint, endpoint))
 
   return {
     message: 'Unsubscribed successfully'
