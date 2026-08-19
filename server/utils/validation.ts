@@ -110,7 +110,9 @@ export const updateBookingSchema = z.object({
   roomId: z.number().int().positive().optional(),
   externalVenueId: z.number().int().positive().optional(),
   status: bookingStatusSchema.optional(),
-  rejectionReason: z.string().max(500).optional()
+  rejectionReason: z.string().max(500).optional(),
+  // The admin override: double-book deliberately, which the UI asks about first.
+  allowConflicts: z.boolean().optional()
 }).refine(
   (data) => {
     // Can't assign both room and external venue
@@ -134,6 +136,29 @@ export const updateBookingSchema = z.object({
   {
     message: 'Rejection reason is required when rejecting a booking',
     path: ['rejectionReason']
+  }
+)
+
+/**
+ * Written out rather than derived: Zod 4 refuses `.partial()` on a schema
+ * carrying a refinement, and createBookingSchema has one.
+ */
+export const ownerUpdateBookingSchema = z.object({
+  eventTitle: z.string().min(1, 'Event title is required').max(255).optional(),
+  numberOfAttendees: z.number().int().positive().optional(),
+  startTime: z.iso.datetime('Invalid start time').optional(),
+  endTime: z.iso.datetime('Invalid end time').optional(),
+  notes: z.string().max(1000).optional()
+}).refine(
+  (data) => {
+    if (data.startTime && data.endTime) {
+      return new Date(data.endTime) > new Date(data.startTime)
+    }
+    return true
+  },
+  {
+    message: 'End time must be after start time',
+    path: ['endTime']
   }
 )
 

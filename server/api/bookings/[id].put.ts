@@ -5,6 +5,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'
+import { applyBookingChange } from '~~/server/utils/bookingWrites'
 
 defineRouteMeta({
   openAPI: {
@@ -32,6 +33,7 @@ defineRouteMeta({
               externalVenueId: { type: 'integer', description: 'Assign external venue (admin only)' },
               status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'], description: 'Booking status (admin only)' },
               rejectionReason: { type: 'string', description: 'Reason for rejection (admin only)' },
+              allowConflicts: { type: 'boolean', description: 'Assign despite a clash (admin only)' },
               eventTitle: { type: 'string', description: 'Event title (user)' },
               numberOfAttendees: { type: 'integer', description: 'Number of attendees (user)' },
               startTime: { type: 'string', format: 'date-time', description: 'Start time (user)' },
@@ -100,16 +102,7 @@ export default defineEventHandler(async (event) => {
     // Track if status changed for notification
     const statusChanged = data.status && data.status !== existingBooking.status
 
-    // Update booking
-    await db
-      .update(schema.bookings)
-      .set({
-        ...(data.roomId !== undefined && { roomId: data.roomId, externalVenueId: null }),
-        ...(data.externalVenueId !== undefined && { externalVenueId: data.externalVenueId, roomId: null }),
-        ...(data.status && { status: data.status }),
-        ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason })
-      })
-      .where(eq(schema.bookings.id, id))
+    await applyBookingChange(existingBooking, data, { allowConflicts: data.allowConflicts })
 
     const updatedBooking = await findBooking(id)
     if (!updatedBooking) {
@@ -160,20 +153,13 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Validate with createBookingSchema (partial)
-    const data = await readValidatedBody(event, createBookingSchema.partial().parse)
+    const data = await readValidatedBody(event, ownerUpdateBookingSchema.parse)
 
-    // Update booking details
-    await db
-      .update(schema.bookings)
-      .set({
-        ...(data.eventTitle && { eventTitle: data.eventTitle }),
-        ...(data.numberOfAttendees !== undefined && { numberOfAttendees: data.numberOfAttendees }),
-        ...(data.startTime && { startTime: new Date(data.startTime) }),
-        ...(data.endTime && { endTime: new Date(data.endTime) }),
-        ...(data.notes !== undefined && { notes: data.notes })
-      })
-      .where(eq(schema.bookings.id, id))
+    await applyBookingChange(existingBooking, {
+      ...data,
+      ...(data.startTime && { startTime: new Date(data.startTime) }),
+      ...(data.endTime && { endTime: new Date(data.endTime) })
+    })
 
     const updatedBooking = await findBooking(id)
     if (!updatedBooking) {

@@ -253,7 +253,8 @@ export async function createRecurringBookings(
   },
   pattern: RecurringPatternInput,
   baseStartTime: Date,
-  baseEndTime: Date
+  baseEndTime: Date,
+  allowConflicts = false
 ): Promise<{
   parentBooking: Booking
   childBookings: Booking[]
@@ -261,9 +262,41 @@ export async function createRecurringBookings(
 }> {
   const occurrences = generateRecurringOccurrences(pattern, baseStartTime, baseEndTime)
 
-  // Create the parent booking (first occurrence)
-  // generateRecurringOccurrences always yields at least one occurrence.
-  const firstOccurrence = occurrences[0]!
+  const firstOccurrence = occurrences[0]
+  if (!firstOccurrence) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Pattern produces no occurrences',
+      message: 'This recurrence pattern generates no bookings. Check the end date and the days selected.'
+    })
+  }
+
+  // Every occurrence holds its own slot, so every occurrence is checked before
+  // any row is written (CLAUDE.md invariant 4).
+  if (parentBookingData.roomId || parentBookingData.externalVenueId) {
+    const { conflictingOccurrences } = await checkRecurringAvailability(
+      pattern,
+      baseStartTime,
+      baseEndTime,
+      parentBookingData.roomId,
+      parentBookingData.externalVenueId
+    )
+
+    if (conflictingOccurrences.length && !allowConflicts) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Some occurrences are not available',
+        data: {
+          message: `${conflictingOccurrences.length} of ${occurrences.length} occurrence(s) clash with an existing booking.`,
+          occurrences: conflictingOccurrences.map(o => ({
+            occurrenceNumber: o.occurrenceNumber,
+            startTime: o.startTime,
+            endTime: o.endTime
+          }))
+        }
+      })
+    }
+  }
   const parentBooking = requireRow(await db
     .insert(schema.bookings)
     .values({
