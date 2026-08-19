@@ -1,5 +1,5 @@
 /**
- * POST /api/rooms — create an internal room. Admin only.
+ * POST /api/rooms: create an internal room. Admin only.
  */
 
 import { db, schema } from '@nuxthub/db'

@@ -6,7 +6,7 @@
 const PUBLIC_API = [
   /^\/api\/_content\//, // @nuxt/content (docs pages)
   /^\/api\/_auth\//, // nuxt-auth-utils session read
-  /^\/api\/_hooks\//, // GDPR hooks — carry their own service-hash bearer auth
+  /^\/api\/_hooks\//, // GDPR hooks; carry their own service-hash bearer auth
   /^\/api\/health$/
 ]
 

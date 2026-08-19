@@ -1,5 +1,5 @@
 /**
- * GET /api/users/:id — one local user mirror, with their bookings. Admin only.
+ * GET /api/users/:id: one local user mirror, with their bookings. Admin only.
  */
 import { db, schema } from '@nuxthub/db'
 import { count, desc, eq } from 'drizzle-orm'

@@ -155,7 +155,7 @@ const columns: TableColumn<Venue>[] = [
     filterFn: 'equals',
     cell: ({ row }) => {
       const campus = row.original.campus
-      return h('span', { class: 'text-sm' }, campus || '—')
+      return h('span', { class: 'text-sm' }, campus || '-')
     }
   },
   {
@@ -189,7 +189,7 @@ const columns: TableColumn<Venue>[] = [
     header: 'Contact',
     cell: ({ row }) => {
       const contact = row.original.contactDetails
-      return h('span', { class: 'text-sm text-muted truncate max-w-xs block' }, contact || '—')
+      return h('span', { class: 'text-sm text-muted truncate max-w-xs block' }, contact || '-')
     }
   },
   {

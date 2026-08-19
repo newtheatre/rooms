@@ -1,5 +1,5 @@
 /**
- * PUT /api/rooms/:id — update an internal room. Admin only. Partial body.
+ * PUT /api/rooms/:id: update an internal room. Admin only. Partial body.
  */
 
 import { db, schema } from '@nuxthub/db'

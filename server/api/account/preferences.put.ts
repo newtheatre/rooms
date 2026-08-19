@@ -1,5 +1,5 @@
 /**
- * PUT /api/account/preferences — update the caller's notification channels and
+ * PUT /api/account/preferences: update the caller's notification channels and
  * types. Account-security mail ignores both.
  */
 import { db, schema } from '@nuxthub/db'

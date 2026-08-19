@@ -979,7 +979,7 @@ const columns: TableColumn<Booking>[] = [
     header: 'Attendees',
     cell: ({ row }) => {
       const count = row.original.numberOfAttendees
-      return h('span', { class: 'text-sm text-muted' }, count ? count.toString() : '—')
+      return h('span', { class: 'text-sm text-muted' }, count ? count.toString() : '-')
     }
   },
   {

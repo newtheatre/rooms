@@ -1,6 +1,6 @@
 /**
- * Create a booking request. Admins may also set userId, a space and a status —
- * docs/api-reference.md#post-apibookings
+ * Create a booking request. Admins may also set userId, a space and a status.
+ * See docs/api-reference.md#post-apibookings
  */
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'

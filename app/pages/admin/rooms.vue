@@ -298,7 +298,7 @@ const columns: TableColumn<Room>[] = [
     header: 'Capacity',
     cell: ({ row }) => {
       const capacity = row.original.capacity
-      return h('span', { class: 'text-sm text-muted' }, capacity ? capacity.toString() : '—')
+      return h('span', { class: 'text-sm text-muted' }, capacity ? capacity.toString() : '-')
     }
   },
   {

@@ -1,5 +1,5 @@
 /**
- * GET /api/venues — list external venues. Admins also get creation dates and
+ * GET /api/venues: list external venues. Admins also get creation dates and
  * booking counts. Filters: campus, building.
  */
 

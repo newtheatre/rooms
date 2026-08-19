@@ -5,7 +5,7 @@ import * as z from 'zod'
 const bodySchema = z.object({ userId: z.string().min(1) })
 
 /**
- * POST /api/_hooks/auth/export — this app's contribution to a subject-access
+ * POST /api/_hooks/auth/export: this app's contribution to a subject-access
  * bundle (stage-door docs/gdpr-retention.md). Service-hook auth.
  */
 export default defineEventHandler(async (event) => {

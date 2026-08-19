@@ -1,6 +1,6 @@
 /**
  * Update a booking. Admin and owner send different bodies, validated against
- * different schemas — docs/api-reference.md#put-apibookingsid
+ * different schemas. See docs/api-reference.md#put-apibookingsid
  */
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'

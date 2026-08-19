@@ -62,7 +62,7 @@ email rather than five.
 | `eventTitle` | anyone | Required |
 | `startTime`, `endTime` | anyone | ISO 8601. Required. |
 | `numberOfAttendees`, `notes` | anyone | Optional |
-| `recurringPattern` | anyone | `{ frequency, interval, daysOfWeek, maxOccurrences, endDate }` — expands to one booking row per occurrence, each availability-checked before any row is written |
+| `recurringPattern` | anyone | `{ frequency, interval, daysOfWeek, maxOccurrences, endDate }`, expands to one booking row per occurrence, each availability-checked before any row is written |
 | `userId` | admin | Book on behalf of someone |
 | `roomId` / `externalVenueId` | admin | Assign a space at creation |
 | `status` | admin | Override the initial status |
@@ -73,9 +73,9 @@ Admins are notified of anything left `PENDING`, as one batched email rather than
 
 The two roles are validated against different schemas.
 
-- **Admin** — `roomId`, `externalVenueId`, `status`, `rejectionReason`, `allowConflicts`, plus the schedule fields `eventTitle`, `numberOfAttendees`, `startTime`, `endTime` and `notes`.
-- **Owner, `PENDING` only** — `eventTitle`, `numberOfAttendees`, `startTime`, `endTime`, `notes`.
-- **Owner, `PENDING` or `CONFIRMED`** — `status: "CANCELLED"`, the only status an owner may set.
+- **Admin**: `roomId`, `externalVenueId`, `status`, `rejectionReason`, `allowConflicts`, plus the schedule fields `eventTitle`, `numberOfAttendees`, `startTime`, `endTime` and `notes`.
+- **Owner, `PENDING` only**: `eventTitle`, `numberOfAttendees`, `startTime`, `endTime`, `notes`.
+- **Owner, `PENDING` or `CONFIRMED`**: `status: "CANCELLED"`, the only status an owner may set.
 
 Moving a booking is an admin action: changing `startTime` or `endTime` re-checks occupancy for
 the new window, so a move onto an occupied slot is a 409 like any other clash. This is what makes
@@ -118,7 +118,7 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 | `POST /api/venues` | admin | |
 | `GET /api/venues/:id` | admin | |
 | `PUT /api/venues/:id` | admin | Partial body, at least one field. |
-| `DELETE /api/venues/:id` | admin | Permanent, and refused while any booking references the venue — unlike rooms there is no deactivated state. |
+| `DELETE /api/venues/:id` | admin | Permanent, and refused while any booking references the venue; unlike rooms there is no deactivated state. |
 
 ## Users
 
@@ -137,7 +137,7 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 | `POST /api/notifications/subscribe` | session | Registers a Web Push subscription, keyed on the unique `endpoint`. |
 | `POST /api/notifications/unsubscribe` | session | By endpoint; the caller may only remove their own. |
 
-**Nothing sends to push subscriptions.** `sendPushNotification` is a stub — see
+**Nothing sends to push subscriptions.** `sendPushNotification` is a stub. See
 [data-model.md](data-model.md#push_subscriptions).
 
 ## Inbound GDPR hooks

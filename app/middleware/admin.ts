@@ -1,5 +1,5 @@
 /**
- * Estate session plus `rooms:ADMIN`, and the session must be fresh — stale
+ * Estate session plus `rooms:ADMIN`, and the session must be fresh. Stale
  * roles bounce through the auth service's refresh endpoint.
  */
 export default defineNuxtRouteMiddleware((to) => {

@@ -49,8 +49,8 @@ export default defineEventHandler(async (event) => {
   // Require admin authentication
   await requireAdmin(event)
 
-  // Parse query parameters. Roles now live in the central auth service —
-  // this mirror table has no role column to filter by.
+  // Roles live in the central auth service, so this mirror table has no
+  // role column to filter by.
   const { search: searchFilter, limit, offset } = await getValidatedQuery(event, userListQuerySchema.parse)
 
   const where = searchFilter

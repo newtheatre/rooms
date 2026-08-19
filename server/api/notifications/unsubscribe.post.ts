@@ -1,5 +1,5 @@
 /**
- * POST /api/notifications/unsubscribe — drop a Web Push subscription by
+ * POST /api/notifications/unsubscribe: drop a Web Push subscription by
  * endpoint. The caller may only remove their own.
  */
 import { db, schema } from '@nuxthub/db'

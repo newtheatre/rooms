@@ -1,5 +1,5 @@
 /**
- * DELETE /api/bookings/bulk — delete many bookings in one request. Admin only.
+ * DELETE /api/bookings/bulk: delete many bookings in one request. Admin only.
  *
  * Body: `{ bookingIds: number[] }`. Notifications are grouped by user.
  */

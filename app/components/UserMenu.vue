@@ -28,7 +28,7 @@ async function logout() {
   // Logout is estate-wide and owned by the auth service; this app never clears
   // the shared cookie itself.
   if (import.meta.dev) {
-    // Dev sessions are local (/dev-login) — clear locally.
+    // Dev sessions are local (/dev-login), so clear locally.
     await clear()
     await router.push('/')
     return

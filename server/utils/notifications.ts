@@ -1,7 +1,7 @@
 /**
  * Sending notifications to users, subject to their channel and type preferences.
  *
- * PUSH is not implemented — see sendPushNotification.
+ * PUSH is not implemented, see sendPushNotification.
  */
 
 import type { User } from '~~/server/db/schema/user'
@@ -186,7 +186,7 @@ export async function notifyAdmins(subject: string, content: string): Promise<vo
 }
 
 /**
- * NOT IMPLEMENTED — logs and returns, so the PUSH channel delivers nothing.
+ * NOT IMPLEMENTED, logs and returns, so the PUSH channel delivers nothing.
  * TODO: send via Web Push Protocol to push_subscriptions.
  */
 export async function sendPushNotification(

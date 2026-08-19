@@ -1,5 +1,5 @@
 /**
- * GET /api/bookings/:id — one booking with its relations. Owner or admin.
+ * GET /api/bookings/:id: one booking with its relations. Owner or admin.
  */
 
 defineRouteMeta({

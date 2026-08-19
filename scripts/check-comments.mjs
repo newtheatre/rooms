@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Enforces the comment rules in CLAUDE.md §Comments. Run by CI.
+// Enforces CLAUDE.md §Comments, and the no-em-dash rule repo-wide. Run by CI.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -8,6 +8,10 @@ const MAX_LINES = 2
 const ROOT = process.cwd()
 const SKIP = new Set(['node_modules', '.nuxt', '.output', '.wrangler', '.git', '.data', '.claude', 'dist', 'migrations'])
 const EXTS = ['.ts', '.vue', '.mjs', '.js', '.prisma']
+// The em dash rule covers prose and UI copy, not only code comments.
+const PROSE_EXTS = [...EXTS, '.md', '.yml', '.yaml', '.sh', '.json']
+// A verbatim copy of stage-door's source: changed there, never here.
+const NOT_OURS = new Set(['shared/utils/nntAuth.ts'])
 
 const BANNED_TAGS = /@(param|returns?|prop|props|emits?|module|route|authenticated|admin-only|method|example|see|throws)\b/
 const HISTORY = /\b(used to|originally|an earlier version|previously|it used to|we used to|this used to|no longer needed|before this)\b/i
@@ -20,7 +24,7 @@ function walk(dir, out = []) {
     if (SKIP.has(entry)) continue
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) walk(full, out)
-    else if (EXTS.some(e => entry.endsWith(e))) out.push(full)
+    else if (PROSE_EXTS.some(e => entry.endsWith(e))) out.push(full)
   }
   return out
 }
@@ -73,6 +77,14 @@ for (const file of walk(ROOT)) {
   } catch {
     continue
   }
+  if (!NOT_OURS.has(rel)) {
+    source.split('\n').forEach((text, i) => {
+      if (text.includes('\u2014')) failures.push(`${rel}:${i + 1}  em dash: use a comma, colon, semicolon, or two sentences`)
+    })
+  }
+
+  if (!EXTS.some(e => file.endsWith(e))) continue
+
   for (const { line, text } of blocks(source)) {
     const body = text.filter(Boolean)
     if (!body.length) continue
@@ -80,16 +92,16 @@ for (const file of walk(ROOT)) {
     // Directives are instructions to tooling, not prose.
     if (/^(eslint|@ts-|prettier|c8 |v8 |istanbul|#!)/.test(joined)) continue
     if (body.length > MAX_LINES) failures.push(`${rel}:${line}  ${body.length} lines (max ${MAX_LINES})`)
-    if (BANNED_TAGS.test(joined)) failures.push(`${rel}:${line}  JSDoc tag — the signature already says it`)
-    if (HISTORY.test(joined)) failures.push(`${rel}:${line}  narrates history — that belongs in an ADR`)
-    if (FIGURES.test(joined)) failures.push(`${rel}:${line}  bare figure — put it in docs/, dated`)
+    if (BANNED_TAGS.test(joined)) failures.push(`${rel}:${line}  JSDoc tag: the signature already says it`)
+    if (HISTORY.test(joined)) failures.push(`${rel}:${line}  narrates history: that belongs in an ADR`)
+    if (FIGURES.test(joined)) failures.push(`${rel}:${line}  bare figure: put it in docs/, dated`)
   }
 }
 
 if (failures.length) {
-  console.error(`\n${failures.length} comment rule violation(s):\n`)
+  console.error(`\n${failures.length} style rule violation(s):\n`)
   for (const f of failures) console.error(`  ${f}`)
-  console.error('\nSee CLAUDE.md §Comments.\n')
+  console.error('\nSee CLAUDE.md §Comments and §Writing style.\n')
   process.exit(1)
 }
-console.log('Comments OK.')
+console.log('Comments and writing style OK.')

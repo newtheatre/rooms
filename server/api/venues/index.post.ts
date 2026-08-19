@@ -1,5 +1,5 @@
 /**
- * POST /api/venues — create an external venue. Admin only.
+ * POST /api/venues: create an external venue. Admin only.
  */
 
 import { db, schema } from '@nuxthub/db'
