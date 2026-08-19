@@ -84,10 +84,11 @@ const { data: bookings, status, refresh: refreshBookings } = await useFetch<Book
 })
 
 const { data: rooms } = await useFetch<Room[]>('/api/rooms', {
+  key: 'active-rooms',
   query: { includeInactive: 'false' }
 })
 
-const { data: venues } = await useFetch<ExternalVenue[]>('/api/venues')
+const { data: venues } = await useFetch<ExternalVenue[]>('/api/venues', { key: 'venues' })
 
 // Modals - modals handle their own state and API calls
 const bookingToEdit = ref<Booking | null>(null)

@@ -26,9 +26,10 @@ const {
 
 // Load available rooms (fallback if availability check hasn't run)
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
+  key: 'active-rooms',
   query: { includeInactive: 'false' }
 })
-const { data: venues, status: venuesStatus, refresh: refreshVenues } = useLazyFetch('/api/venues')
+const { data: venues, status: venuesStatus, refresh: refreshVenues } = useLazyFetch('/api/venues', { key: 'venues' })
 
 watch(open, (isOpen) => {
   if (isOpen) {

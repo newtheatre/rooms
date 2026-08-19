@@ -4,7 +4,7 @@
  */
 
 import { db, schema } from '@nuxthub/db'
-import { and, asc, eq, gt, lt, ne, inArray } from 'drizzle-orm'
+import { and, asc, eq, gt, isNotNull, lt, ne, inArray } from 'drizzle-orm'
 
 const OCCUPYING_STATUSES = ['CONFIRMED', 'PENDING', 'AWAITING_EXTERNAL'] as const
 
@@ -88,27 +88,40 @@ export async function getAvailableRooms(
   available: Room[]
   unavailable: Array<Room & { conflicts: Conflict[] }>
 }> {
-  const rooms = await db
-    .select()
-    .from(schema.rooms)
-    .where(options?.includeInactive ? undefined : eq(schema.rooms.isActive, true))
-    .orderBy(asc(schema.rooms.name))
+  // Two queries whatever the room count: scoped by predicate, so the bound
+  // parameter count does not grow with the rows covered (CLAUDE.md 10).
+  const [rooms, occupied] = await Promise.all([
+    db
+      .select()
+      .from(schema.rooms)
+      .where(options?.includeInactive ? undefined : eq(schema.rooms.isActive, true))
+      .orderBy(asc(schema.rooms.name)),
+    findConflicts(
+      isNotNull(schema.bookings.roomId),
+      startTime,
+      endTime,
+      options?.excludeBookingId
+    )
+  ])
+
+  const conflictsByRoom = new Map<number, Conflict[]>()
+  for (const conflict of occupied) {
+    if (conflict.roomId === null) continue
+    const existing = conflictsByRoom.get(conflict.roomId)
+    if (existing) existing.push(conflict)
+    else conflictsByRoom.set(conflict.roomId, [conflict])
+  }
 
   const available: Room[] = []
   const unavailable: Array<Room & { conflicts: Conflict[] }> = []
 
   for (const room of rooms) {
-    const { isAvailable, conflicts } = await checkRoomAvailability(
-      room.id,
-      startTime,
-      endTime,
-      options?.excludeBookingId
-    )
+    const conflicts = conflictsByRoom.get(room.id)
 
-    if (isAvailable) {
-      available.push(room)
-    } else {
+    if (conflicts?.length) {
       unavailable.push({ ...room, conflicts })
+    } else {
+      available.push(room)
     }
   }
 
