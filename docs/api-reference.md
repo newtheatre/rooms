@@ -27,7 +27,7 @@ reaching the ORM and surfacing as a 500.
 | `POST /api/bookings` | session | Create a request. See below. |
 | `GET /api/bookings/:id` | owner or admin | One booking with its relations. |
 | `PUT /api/bookings/:id` | owner or admin | Field set depends on role. See below. |
-| `DELETE /api/bookings/:id` | owner or admin | Deletes and notifies the owner. |
+| `DELETE /api/bookings/:id` | owner or admin | Deletes and notifies the owner. `?scope=series` removes the whole recurring series; the default `occurrence` removes one and promotes the next to head it ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). |
 | `PUT /api/bookings/bulk` | admin | `{ updates: [{ id, data }] }`, where `data` is the admin shape below. Same schema and same occupancy check as the single-row route. |
 | `DELETE /api/bookings/bulk` | admin | `{ bookingIds: number[] }`. |
 

@@ -451,27 +451,19 @@ async function rejectDirect(booking: Booking, rejectionReason: string, relatedBo
 // Direct booking deletion (used internally and by modal)
 async function deleteDirect(booking: Booking, relatedBookings?: Booking[]) {
   try {
-    const bookingsToDelete = relatedBookings ? [booking, ...relatedBookings] : [booking]
+    // The series is resolved server-side, so this does not depend on which
+    // occurrences the client happens to have loaded.
+    const scope = relatedBookings?.length ? 'series' : 'occurrence'
 
-    // Use bulk endpoint if deleting multiple bookings
-    if (bookingsToDelete.length > 1) {
-      await $fetch('/api/bookings/bulk', {
-        method: 'DELETE',
-        body: {
-          bookingIds: bookingsToDelete.map(b => b.id)
-        }
-      })
-    } else {
-      // Single booking - use regular endpoint
-      await $fetch(`/api/bookings/${booking.id}`, {
-        method: 'DELETE'
-      })
-    }
+    const { deleted } = await $fetch<{ deleted: number }>(`/api/bookings/${booking.id}`, {
+      method: 'DELETE',
+      query: { scope }
+    })
 
     toast.add({
       title: 'Booking deleted',
-      description: bookingsToDelete.length > 1
-        ? `${bookingsToDelete.length} bookings deleted`
+      description: deleted > 1
+        ? `${deleted} bookings deleted`
         : `${booking.eventTitle} has been deleted`,
       icon: 'i-lucide-check',
       color: 'success'
