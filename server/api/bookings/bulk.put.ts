@@ -3,36 +3,19 @@
  * so five moved bookings send one email.
  */
 import { db, schema } from '@nuxthub/db'
-import { eq, inArray } from 'drizzle-orm'
+import { inArray } from 'drizzle-orm'
 import { notifyBulkBookingUpdates, formatBookingDateTime } from '~~/server/utils/notifications'
 import { z } from 'zod'
+import { applyBookingChange } from '~~/server/utils/bookingWrites'
+import { updateBookingSchema } from '~~/server/utils/validation'
 
-const bookingStatusSchema = z.enum(['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'])
-
-const updateDataSchema = z.object({
-  roomId: z.number().int().positive().optional(),
-  externalVenueId: z.number().int().positive().optional(),
-  status: bookingStatusSchema.optional(),
-  rejectionReason: z.string().max(500).optional()
-}).refine(
-  (data) => {
-    // Can't assign both room and external venue
-    if (data.roomId && data.externalVenueId) {
-      return false
-    }
-    return true
-  },
-  {
-    message: 'Cannot assign both room and external venue',
-    path: ['roomId']
-  }
-)
-
+// The canonical schema, not a copy: a local one silently lost the rule that a
+// rejection carries a reason.
 const bulkUpdateSchema = z.object({
   updates: z.array(
     z.object({
       id: z.number().int().positive(),
-      data: updateDataSchema
+      data: updateBookingSchema
     })
   ).min(1).max(100)
 })
@@ -92,15 +75,7 @@ export default defineEventHandler(async (event) => {
     const statusChanged = data.status && data.status !== existingBooking.status
 
     // One statement per booking: a fixed parameter count regardless of batch.
-    await db
-      .update(schema.bookings)
-      .set({
-        ...(data.roomId !== undefined && { roomId: data.roomId, externalVenueId: null }),
-        ...(data.externalVenueId !== undefined && { externalVenueId: data.externalVenueId, roomId: null }),
-        ...(data.status && { status: data.status }),
-        ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason })
-      })
-      .where(eq(schema.bookings.id, update.id))
+    await applyBookingChange(existingBooking, data, { allowConflicts: data.allowConflicts })
 
     const updatedBooking = await findBooking(update.id)
     if (!updatedBooking) continue

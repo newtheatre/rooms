@@ -23,7 +23,7 @@ carries the behaviour that block cannot express.
 | `GET /api/bookings/:id` | owner or admin | One booking with its relations. |
 | `PUT /api/bookings/:id` | owner or admin | Field set depends on role. See below. |
 | `DELETE /api/bookings/:id` | owner or admin | Deletes and notifies the owner. |
-| `PUT /api/bookings/bulk` | admin | `{ updates: [{ id, data }] }`, where `data` is the admin shape below. |
+| `PUT /api/bookings/bulk` | admin | `{ updates: [{ id, data }] }`, where `data` is the admin shape below. Same schema and same occupancy check as the single-row route. |
 | `DELETE /api/bookings/bulk` | admin | `{ bookingIds: number[] }`. |
 
 Both bulk routes group notifications by user, so someone whose five bookings all move gets one
@@ -36,7 +36,7 @@ email rather than five.
 | `eventTitle` | anyone | Required |
 | `startTime`, `endTime` | anyone | ISO 8601. Required. |
 | `numberOfAttendees`, `notes` | anyone | Optional |
-| `recurringPattern` | anyone | `{ frequency, interval, daysOfWeek, maxOccurrences, endDate }` — expands to one booking row per occurrence, each availability-checked |
+| `recurringPattern` | anyone | `{ frequency, interval, daysOfWeek, maxOccurrences, endDate }` — expands to one booking row per occurrence, each availability-checked before any row is written |
 | `userId` | admin | Book on behalf of someone |
 | `roomId` / `externalVenueId` | admin | Assign a space at creation |
 | `status` | admin | Override the initial status |
@@ -47,10 +47,17 @@ Admins are notified of anything left `PENDING`, as one batched email rather than
 
 The two roles are validated against different schemas.
 
-- **Admin** — `roomId`, `externalVenueId`, `status`, `rejectionReason`.
+- **Admin** — `roomId`, `externalVenueId`, `status`, `rejectionReason`, `allowConflicts`.
 - **Owner, `PENDING` only** — `eventTitle`, `numberOfAttendees`, `startTime`, `endTime`, `notes`.
 
 A status change made by an admin notifies the owner, subject to their preferences.
+
+Every write goes through `applyBookingChange` in `server/utils/bookingWrites.ts`, which
+re-checks occupancy for the booking as it will be *after* the patch. A change that would
+double-book returns **409** with the clashing bookings in `data.conflicts`. `allowConflicts: true`
+is the deliberate admin override and is the only way to write a clash.
+
+A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never blocked.
 
 ## Rooms
 

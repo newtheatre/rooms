@@ -88,16 +88,9 @@ export default defineEventHandler(async (event) => {
   // Check if this is a recurring booking
   const isRecurring = validatedData.recurringPattern && validatedData.recurringPattern.maxOccurrences > 1
 
-  // If admin is assigning a room/venue, validate availability
-  if (isAdmin && (roomId || externalVenueId)) {
-    await validateBookingAvailability(
-      roomId,
-      externalVenueId,
-      startTime,
-      endTime,
-      undefined,
-      false // Don't allow conflicts for confirmed bookings
-    )
+  // A recurring booking checks every occurrence inside createRecurringBookings.
+  if (isAdmin && !isRecurring && (roomId || externalVenueId)) {
+    await validateBookingAvailability(roomId, externalVenueId, startTime, endTime)
   }
 
   // Create booking(s)
