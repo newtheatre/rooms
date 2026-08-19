@@ -102,8 +102,12 @@ Recorded here rather than left to be discovered:
 - **Web push is not implemented.** `/api/notifications/subscribe` records a subscription and the
   settings page offers the PUSH channel, but `sendPushNotification` logs and returns
   (`server/utils/notifications.ts`). Selecting PUSH delivers nothing.
-- **`getAvailableRooms` and `getAvailableVenues` query per space**, so listing availability across
-  N rooms costs N+1 queries. Correct, but wasteful on D1, which bills per query.
+- **`getAvailableRooms` queries per room**, so listing availability across N rooms costs N+1
+  queries. Correct, but wasteful on D1, which bills per query.
+- **Venue assignment has no availability preview.** There is no `/api/venues/available` to match
+  the rooms one, so the admin venue picker does not mark which venues are taken. Assigning a
+  clashing venue is still refused server-side with a 409, so this costs a wasted click rather
+  than a double booking.
 
 **`bun run typecheck` reports exactly one error**, down from sixteen. It is in
 `shared/utils/nntAuth.ts`, on its `declare module '#auth-utils'`, and it is an artefact of that

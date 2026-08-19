@@ -4,7 +4,7 @@
  */
 
 import { db, schema } from '@nuxthub/db'
-import { asc, eq, or } from 'drizzle-orm'
+
 import type { RecurringPattern, Booking } from '~~/server/db/schema/booking'
 import { checkRoomAvailability, checkVenueAvailability } from './availability'
 import type { LondonParts } from './london'
@@ -327,38 +327,4 @@ export async function createRecurringBookings(
     childBookings,
     pattern: recurringPattern
   }
-}
-
-/**
- * Get all bookings in a recurring series
- */
-export async function getRecurringSeriesBookings(bookingId: number): Promise<Booking[]> {
-  // First, check if this is a parent or child booking
-  const [booking] = await db
-    .select()
-    .from(schema.bookings)
-    .where(eq(schema.bookings.id, bookingId))
-    .limit(1)
-
-  if (!booking) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'Booking not found'
-    })
-  }
-
-  // If it has a parent, get the parent ID
-  const parentId = booking.parentBookingId || booking.id
-
-  // Get all bookings in the series
-  const allBookings = await db
-    .select()
-    .from(schema.bookings)
-    .where(or(
-      eq(schema.bookings.id, parentId),
-      eq(schema.bookings.parentBookingId, parentId)
-    ))
-    .orderBy(asc(schema.bookings.occurrenceNumber))
-
-  return allBookings
 }

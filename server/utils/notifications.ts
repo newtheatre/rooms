@@ -12,20 +12,12 @@ import { getResend } from './resend'
 
 export type NotificationChannel = 'EMAIL' | 'PUSH'
 
-/** Preferences do not gate sendCriticalNotification, which always emails. */
 export type NotificationPreference = 'BOOKING_UPDATES' | 'ADMIN_NEW_BOOKINGS'
 
 /** A booking carrying whichever space it was given, as bookingQueries returns. */
 export type BookingWithSpace = Booking & {
   room?: { name: string } | null
   externalVenue?: { building: string, roomName: string } | null
-}
-
-export interface BookingNotification {
-  type: 'BOOKING_UPDATES'
-  booking: Booking
-  title: string
-  message: string
 }
 
 export const LONDON = 'Europe/London'
@@ -292,16 +284,4 @@ export async function notifyBulkBookingUpdates(
   }
 
   await settleAll(notifications, `bulk notifications for ${updatesByUser.size} user(s)`)
-}
-
-/**
- * Account-security mail (password reset, account deletion). Always emails,
- * regardless of preferences.
- */
-export async function sendCriticalNotification(
-  user: User,
-  subject: string,
-  content: string
-): Promise<void> {
-  await sendEmail(user, subject, content)
 }

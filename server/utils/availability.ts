@@ -10,21 +10,10 @@ const OCCUPYING_STATUSES = ['CONFIRMED', 'PENDING', 'AWAITING_EXTERNAL'] as cons
 
 type Booking = typeof schema.bookings.$inferSelect
 type Room = typeof schema.rooms.$inferSelect
-type ExternalVenue = typeof schema.externalVenues.$inferSelect
 
 /** The conflicting booking plus who holds it, for the 409 payload. */
 export type Conflict = Booking & {
   user: { id: string, name: string, email: string } | null
-}
-
-/** Half-open intervals: touching end-to-start is not an overlap. */
-export function hasTimeOverlap(
-  start1: Date,
-  end1: Date,
-  start2: Date,
-  end2: Date
-): boolean {
-  return start1 < end2 && end1 > start2
 }
 
 /** Shared by both space kinds; only the space predicate differs. */
@@ -120,43 +109,6 @@ export async function getAvailableRooms(
       available.push(room)
     } else {
       unavailable.push({ ...room, conflicts })
-    }
-  }
-
-  return { available, unavailable }
-}
-
-/** Every external venue, split into available and unavailable for the range. */
-export async function getAvailableVenues(
-  startTime: Date,
-  endTime: Date,
-  options?: {
-    excludeBookingId?: number
-  }
-): Promise<{
-  available: ExternalVenue[]
-  unavailable: Array<ExternalVenue & { conflicts: Conflict[] }>
-}> {
-  const venues = await db
-    .select()
-    .from(schema.externalVenues)
-    .orderBy(asc(schema.externalVenues.building), asc(schema.externalVenues.roomName))
-
-  const available: ExternalVenue[] = []
-  const unavailable: Array<ExternalVenue & { conflicts: Conflict[] }> = []
-
-  for (const venue of venues) {
-    const { isAvailable, conflicts } = await checkVenueAvailability(
-      venue.id,
-      startTime,
-      endTime,
-      options?.excludeBookingId
-    )
-
-    if (isAvailable) {
-      available.push(venue)
-    } else {
-      unavailable.push({ ...venue, conflicts })
     }
   }
 
