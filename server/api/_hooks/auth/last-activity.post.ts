@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   requireHookAuth(event)
   const { userIds } = await readValidatedBody(event, body => bodySchema.parse(body))
 
-  // D1 caps bound parameters at 100 — chunk regardless of caller batch size.
+  // D1 caps bound parameters at 100; chunk regardless of caller batch size.
   const byUser = new Map<string, number | null>()
   for (let i = 0; i < userIds.length; i += 90) {
     const latest = await db

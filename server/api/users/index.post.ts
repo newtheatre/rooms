@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
     )
   } catch (error) {
     console.error('[users] shadow-create failed:', error)
-    throw createError({ statusCode: 502, message: 'Could not reach the auth service — try again' })
+    throw createError({ statusCode: 502, message: 'Could not reach the auth service, try again' })
   }
 
   const user = requireRow(await db

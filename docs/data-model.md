@@ -27,7 +27,7 @@ session and is read from there.
 | --- | --- |
 | `id` | Canonical auth-service id. Never minted locally. |
 | `email` | Unique. Case-sensitive, which is why the migration had to fold case-duplicates. Two auth-service ids can hold one address before a merge, so `ensureLocalUser` mirrors the later one under a placeholder rather than failing ([ADR-0004](decisions/0004-an-email-collision-must-not-break-every-request.md)). |
-| `is_rooms_admin` | **A cache, not an authority.** Refreshed from the session on each request and used only to decide who receives admin notification fan-out — a cron has no session to read roles from. Never gate access on it. |
+| `is_rooms_admin` | **A cache, not an authority.** Refreshed from the session on each request and used only to decide who receives admin notification fan-out; a cron has no session to read roles from. Never gate access on it. |
 | `notification_channels` | JSON array, e.g. `["EMAIL", "PUSH"]`. Unparseable values fall back to `["EMAIL"]`. |
 | `notification_preferences` | JSON array, e.g. `["BOOKING_UPDATES"]`. Unparseable values fall back to `["BOOKING_UPDATES"]`. |
 
@@ -96,7 +96,7 @@ change during it. Only the start is anchored to the wall clock.
 
 ### Occupancy
 
-A space is occupied by bookings in **`CONFIRMED`, `PENDING` or `AWAITING_EXTERNAL`** — a pending
+A space is occupied by bookings in **`CONFIRMED`, `PENDING` or `AWAITING_EXTERNAL`**, a pending
 request holds its slot, so two people cannot both be told yes.
 
 `server/utils/availability.ts` is the single implementation of that rule. Intervals are half-open:
@@ -113,7 +113,7 @@ admin override for double-booking.
 Attached to the **parent** (first) booking of a series, one-to-one.
 
 Expansion happens once, at creation: every occurrence becomes its own `bookings` row carrying
-`parent_booking_id` and `occurrence_number`. There is no series entity to keep in step — occurrences
+`parent_booking_id` and `occurrence_number`. There is no series entity to keep in step; occurrences
 are approved, moved and cancelled individually.
 
 | Field | Notes |

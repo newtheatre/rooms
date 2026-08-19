@@ -1,5 +1,5 @@
 /**
- * GET /api/rooms/:id — one room. Admin only.
+ * GET /api/rooms/:id: one room. Admin only.
  */
 
 import { db, schema } from '@nuxthub/db'

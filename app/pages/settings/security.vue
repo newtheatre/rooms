@@ -13,7 +13,7 @@ definePageMeta({
 <template>
   <UPageCard
     title="Account security"
-    description="Your NNT account is shared across all NNT sites — passwords, Google sign-in, and logging out everywhere are managed in one place."
+    description="Your NNT account is shared across all NNT sites: passwords, Google sign-in, and logging out everywhere are managed in one place."
     icon="i-lucide-shield"
     variant="subtle"
   >

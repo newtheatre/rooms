@@ -1,6 +1,6 @@
 /**
  * Account-security mail is always sent and is not listed here. PUSH delivers
- * nothing — see server/utils/notifications.ts.
+ * nothing. See server/utils/notifications.ts.
  */
 
 <script setup lang="ts">

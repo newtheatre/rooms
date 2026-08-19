@@ -1,6 +1,6 @@
 /**
  * Booking conflict detection. A space is occupied by CONFIRMED, PENDING and
- * AWAITING_EXTERNAL — docs/data-model.md#occupancy
+ * AWAITING_EXTERNAL. See docs/data-model.md#occupancy
  */
 
 import { db, schema } from '@nuxthub/db'

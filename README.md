@@ -1,10 +1,10 @@
-# Rooms — NNT Rehearsal Room Booking
+# Rooms: NNT Rehearsal Room Booking
 
 Rehearsal room booking for the Nottingham New Theatre. Members request a room and a window;
 committee admins assign an internal room, arrange an external venue, or reject with a reason.
 
 **Live at:** `rooms.newtheatre.org.uk` · **Owner:** IT Manager / Archivist · **Auth:** shared NNT
-sign-on via [stage-door](https://github.com/newtheatre/stage-door) — this app never writes the
+sign-on via [stage-door](https://github.com/newtheatre/stage-door), this app never writes the
 session.
 
 ## Stack
@@ -12,7 +12,7 @@ session.
 | Layer | Choice |
 | --- | --- |
 | Framework | Nuxt 4, Vue 3, Nuxt UI 4 |
-| Server runtime | Nitro on `cloudflare_module` — a Cloudflare Worker, not Node |
+| Server runtime | Nitro on `cloudflare_module`, a Cloudflare Worker, not Node |
 | Database | SQLite: a local file in development, Cloudflare D1 in production |
 | ORM | Drizzle, via NuxtHub's `hub:db` layer |
 | Auth | `nuxt-auth-utils`, reading the estate's sealed `nnt-session` cookie |
@@ -26,7 +26,7 @@ you touch a migration: [ADR-0001](docs/decisions/0001-drizzle-with-a-prisma-base
 
 ## Quick start
 
-This project uses **Bun** — `bun.lock` is the only lockfile.
+This project uses **Bun**; `bun.lock` is the only lockfile.
 
 ```bash
 git clone https://github.com/newtheatre/rooms && cd rooms
@@ -51,7 +51,7 @@ PENDING ──► CONFIRMED                      an internal room is assigned
 
 `CANCELLED` is terminal and available to the requester while a booking is `PENDING` or `CONFIRMED`.
 
-A space is considered occupied by bookings in `CONFIRMED`, `PENDING` or `AWAITING_EXTERNAL` — a
+A space is considered occupied by bookings in `CONFIRMED`, `PENDING` or `AWAITING_EXTERNAL`, a
 pending request holds its slot, so two people cannot both be told yes
 (`server/utils/availability.ts`). Admins can override a conflict deliberately.
 
@@ -61,7 +61,7 @@ occurrences are approved, moved and cancelled individually.
 ## Auth and roles
 
 The estate's sealed `nnt-session` cookie is written only by `auth.newtheatre.org.uk`; this app reads
-it with `getUserSession()`. `rooms:ADMIN` is the only role this app owns — being signed in is
+it with `getUserSession()`. `rooms:ADMIN` is the only role this app owns; being signed in is
 enough to make a booking request.
 
 `shared/utils/nntAuth.ts` is a **verbatim copy** of stage-door's `packages/auth-types/index.ts`.
@@ -74,7 +74,7 @@ Full integration story: stage-door `docs/integrating-an-app.md`.
 ```bash
 bun run dev        # local dev server
 bun run lint       # eslint
-bun run typecheck  # nuxt typecheck — one known error, see below
+bun run typecheck  # nuxt typecheck, one known error, see below
 bun run build      # the production Worker bundle
 bun run db:generate # generate a migration from schema changes (review the SQL!)
 bun run db:migrate  # apply migrations to the local database
@@ -85,7 +85,7 @@ Cloudflare Workers Builds deploys `main`; deployment is not CI's job.
 
 **Migrations are.** `.github/workflows/migrate.yml` applies pending migrations on any push to `main`
 that touches `server/db/migrations/**`. Workers Builds only builds and deploys, and nothing applied
-migrations until this workflow existed — that gap took the estate down for an hour on 2026-08-19
+migrations until this workflow existed; that gap took the estate down for an hour on 2026-08-19
 (stage-door ADR-0021). Every run records a D1 Time Travel restore point before applying and gates on
 the `_hub_migrations` ledger afterwards. It needs a `CLOUDFLARE_API_TOKEN` repository secret with
 D1:Edit, and fails loudly without one.

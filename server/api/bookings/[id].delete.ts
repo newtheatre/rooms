@@ -1,5 +1,5 @@
 /**
- * DELETE /api/bookings/:id — delete a booking. Owner or admin. Notifies the
+ * DELETE /api/bookings/:id: delete a booking. Owner or admin. Notifies the
  * owner.
  */
 

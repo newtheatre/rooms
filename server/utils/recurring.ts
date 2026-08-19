@@ -1,6 +1,6 @@
 /**
  * Expands a recurrence pattern into individual booking rows. There is no
- * series entity — occurrences are handled one at a time.
+ * series entity, occurrences are handled one at a time.
  */
 
 import { db, schema } from '@nuxthub/db'

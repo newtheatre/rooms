@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   ],
 
   // Estate SSO (stage-door docs/session-contract.md): this app READS the
-  // nnt-session cookie sealed by auth.newtheatre.org.uk — it never writes it.
+  // nnt-session cookie sealed by auth.newtheatre.org.uk; it never writes it.
   $production: {
     runtimeConfig: {
       session: {
@@ -56,10 +56,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     session: {
       name: 'nnt-session',
-      password: '', // NUXT_SESSION_PASSWORD — the estate-wide seal secret
+      password: '', // NUXT_SESSION_PASSWORD, the estate-wide seal secret
       maxAge: 60 * 60 * 24 * 30
     },
-    // Worker secret NUXT_AUTH_SERVICE_TOKEN. The NUXT_ prefix is load-bearing —
+    // Worker secret NUXT_AUTH_SERVICE_TOKEN. The NUXT_ prefix is load-bearing:
     // a secret named AUTH_SERVICE_TOKEN is silently ignored.
     authServiceToken: '',
     public: {
@@ -94,7 +94,7 @@ export default defineNuxtConfig({
           }
         ],
         // Estate secrets come from the Secrets Store (stage-door ADR-0016); the
-        // binding name matters — read server/plugins/0.secrets-store.ts first.
+        // binding name matters, read server/plugins/0.secrets-store.ts first.
 
         // Cast: `secrets_store_secrets` is valid wrangler config but missing from
         // the wrangler types Nitro bundles. Drop it once Nitro catches up.

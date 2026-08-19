@@ -1,5 +1,5 @@
 /**
- * DEV ONLY — the one sanctioned exception to "apps never write the session".
+ * DEV ONLY: the one sanctioned exception to "apps never write the session".
  * `?admin=1` grants rooms:ADMIN. Guarded by import.meta.dev.
  */
 export default defineEventHandler(async (event) => {

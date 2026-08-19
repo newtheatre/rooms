@@ -1,5 +1,5 @@
 /**
- * Permanent deletion. The API refuses a room that has bookings — deactivate it
+ * Permanent deletion. The API refuses a room that has bookings; deactivate it
  * instead to keep the booking history readable.
  */
 

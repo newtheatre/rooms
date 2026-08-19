@@ -1,6 +1,6 @@
 /**
  * Permanently remove an external venue. Refused while any booking references
- * it — there is no deactivated state, unlike rooms.
+ * it; there is no deactivated state, unlike rooms.
  */
 
 import { db, schema } from '@nuxthub/db'

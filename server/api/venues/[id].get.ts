@@ -1,5 +1,5 @@
 /**
- * GET /api/venues/:id — one external venue. Admin only.
+ * GET /api/venues/:id: one external venue. Admin only.
  */
 
 import { db, schema } from '@nuxthub/db'

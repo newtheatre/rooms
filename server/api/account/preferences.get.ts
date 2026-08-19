@@ -1,5 +1,5 @@
 /**
- * GET /api/account/preferences — the caller's notification channels and types.
+ * GET /api/account/preferences: the caller's notification channels and types.
  * Both are stored as JSON strings and parsed here.
  */
 import { db, schema } from '@nuxthub/db'

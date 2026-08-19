@@ -1,5 +1,5 @@
 /**
- * PUT /api/venues/:id — update an external venue. Admin only. Partial body.
+ * PUT /api/venues/:id: update an external venue. Admin only. Partial body.
  */
 
 import { db, schema } from '@nuxthub/db'

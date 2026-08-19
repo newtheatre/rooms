@@ -30,7 +30,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     toast.add({
       title: result.existing ? 'Existing NNT account linked' : 'User created',
       description: result.existing
-        ? 'That email already has an NNT account — bookings will attach to it.'
+        ? 'That email already has an NNT account; bookings will attach to it.'
         : 'They can claim the account later with "forgot password" on the NNT login page.',
       color: 'success'
     })
@@ -51,7 +51,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   <UModal
     v-model:open="open"
     title="Add user"
-    description="Creates an NNT account they can claim later — no passwords to hand out."
+    description="Creates an NNT account they can claim later; no passwords to hand out."
   >
     <UButton
       icon="i-lucide-user-round-plus"
