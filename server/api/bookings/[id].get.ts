@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check authorization: user owns booking OR user is admin
-  if (booking.userId !== user.id && !can(user, 'booking.read.any')) {
+  if (booking.userId !== user.id && !await canNow(event, 'booking.read.any')) {
     throw createError({
       statusCode: 403,
       message: 'You do not have permission to view this booking'

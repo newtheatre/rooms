@@ -56,7 +56,7 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   // Require authentication but allow all users
-  const user = await requireAuth(event)
+  await requireAuth(event)
 
   const { campus, building } = await getValidatedQuery(event, venueListQuerySchema.parse)
 
@@ -71,7 +71,7 @@ export default defineEventHandler(async (event) => {
     asc(schema.externalVenues.roomName)
   ]
 
-  const isAdmin = can(user, 'room.read.inactive')
+  const isAdmin = await canNow(event, 'room.read.inactive')
 
   // Non-admins get an explicit column list, never the whole row.
   if (!isAdmin) {

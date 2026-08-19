@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
 
   // Check if user is admin
-  const isAdmin = can(user, 'booking.manage.any')
+  const isAdmin = await canNow(event, 'booking.manage.any')
 
   // Get raw body first to check if it's an admin request
   const rawBody = await readBody(event)

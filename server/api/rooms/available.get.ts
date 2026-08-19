@@ -107,7 +107,7 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   // Require authentication
-  const user = await requireAuth(event)
+  await requireAuth(event)
 
   const query = await getValidatedQuery(event, availableRoomsQuerySchema.parse)
 
@@ -115,7 +115,8 @@ export default defineEventHandler(async (event) => {
   const endTime = new Date(query.endTime)
 
   const excludeBookingId = query.excludeBookingId
-  const includeInactive = can(user, 'room.read.inactive') && query.includeInactive
+  const canSeeBookers = await canNow(event, 'booking.read.any')
+  const includeInactive = await canNow(event, 'room.read.inactive') && query.includeInactive
   const includeUnavailable = query.includeUnavailable
 
   // Get available rooms
@@ -146,14 +147,14 @@ export default defineEventHandler(async (event) => {
     return conflicts.map((conflict) => {
       const formatted: Record<string, unknown> = {
         id: conflict.id,
-        eventTitle: can(user, 'booking.read.any') ? conflict.eventTitle : 'Booked',
+        eventTitle: canSeeBookers ? conflict.eventTitle : 'Booked',
         startTime: conflict.startTime,
         endTime: conflict.endTime,
         status: conflict.status
       }
 
       const conflictWithUser = conflict as unknown as ConflictWithUser
-      if (can(user, 'booking.read.any') && conflictWithUser.user) {
+      if (canSeeBookers && conflictWithUser.user) {
         formatted.user = conflictWithUser.user
       }
 
