@@ -122,11 +122,24 @@ stage-door retries them until they succeed.
 
 | Route | Effect |
 | --- | --- |
-| `POST /api/_hooks/auth/export` | `{ userId }` → this app's personal data: the mirror row and their bookings |
-| `POST /api/_hooks/auth/anonymise` | Scrubs the mirror row. Bookings survive as anonymous rows. |
+| `POST /api/_hooks/auth/export` | `{ userId }` → this app's personal data: the mirror row and their bookings, including `notes` and `rejectionReason` |
+| `POST /api/_hooks/auth/anonymise` | Scrubs the mirror row and every free-text field on their bookings. Bookings survive as anonymous rows. Scrub list below. |
 | `POST /api/_hooks/auth/last-activity` | `{ userIds }` → latest booking activity per user. Chunks its `in` clause at 90 ids, because D1 caps bound parameters at 100. |
 | `POST /api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → re-points bookings and push subscriptions onto the winner, deletes the losing mirror row. Each statement binds two parameters however many rows move, so no chunking is needed here. The winner's own preferences are untouched. (stage-door ADR-0015) |
 | `GET /api/_hooks/auth/manifest` | This app's declaration: namespace, the roles it reads, and the permissions each carries. The auth service polls it and turns the roles into definitions, so adding a role here is what makes it grantable (stage-door ADR-0017). |
+
+### What erasure scrubs
+
+The hook is idempotent, because stage-door retries it until it succeeds.
+
+| Table | Columns |
+| --- | --- |
+| `users` | `email` becomes `deleted-<id>@anonymised.invalid`, `name` becomes "Deleted user", `is_rooms_admin` cleared, both notification columns emptied |
+| `bookings` | `notes` and `rejection_reason` nulled. Everything else survives, so booking statistics do. |
+| `push_subscriptions` | Rows deleted outright |
+
+`rejection_reason` is admin-written free text about the requester, so it is scrubbed with the
+notes and is returned by the export hook.
 
 The manifest is `shared/utils/appManifest.ts`, served verbatim. `rooms:ADMIN` is still the only role
 this app owns, but the four things it actually gates are now named rather than inferred:
