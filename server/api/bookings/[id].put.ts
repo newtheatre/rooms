@@ -4,7 +4,7 @@
  */
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
-import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'
+import { notifyBookingUpdate, notifyAdmins, formatBookingDateTime } from '~~/server/utils/notifications'
 import { applyBookingChange } from '~~/server/utils/bookingWrites'
 
 defineRouteMeta({
@@ -31,7 +31,7 @@ defineRouteMeta({
             properties: {
               roomId: { type: 'integer', description: 'Assign internal room (admin only)' },
               externalVenueId: { type: 'integer', description: 'Assign external venue (admin only)' },
-              status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'], description: 'Booking status (admin only)' },
+              status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'], description: 'Admin sets any status; an owner may only send CANCELLED' },
               rejectionReason: { type: 'string', description: 'Reason for rejection (admin only)' },
               allowConflicts: { type: 'boolean', description: 'Assign despite a clash (admin only)' },
               eventTitle: { type: 'string', description: 'Event title (user)' },
@@ -62,10 +62,27 @@ defineRouteMeta({
       400: { description: 'Validation error' },
       401: { description: 'Not authenticated' },
       403: { description: 'Forbidden' },
-      404: { description: 'Booking not found' }
+      404: { description: 'Booking not found' },
+      409: { description: 'Clashes with an existing booking, or the booking is closed' }
     }
   }
 })
+
+function buildMemberCancellationMessage(booking: BookingWithRelations, cancelledBy: string): string {
+  const space = booking.room
+    ? `Room: ${booking.room.name}`
+    : booking.externalVenue
+      ? `EXTERNAL VENUE: ${booking.externalVenue.building} - ${booking.externalVenue.roomName}. This was arranged by hand, so the venue still needs to be told.`
+      : 'No space had been assigned.'
+
+  return [
+    `${cancelledBy} has cancelled their own booking.`,
+    '',
+    `Event: ${booking.eventTitle}`,
+    `When: ${formatBookingDateTime(booking)}`,
+    space
+  ].join('\n')
+}
 
 export default defineEventHandler(async (event) => {
   // Require authentication
@@ -146,14 +163,23 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    if (existingBooking.status !== 'PENDING') {
+    const data = await readValidatedBody(event, ownerUpdateBookingSchema.parse)
+    const isCancellation = data.status === 'CANCELLED'
+
+    // Cancelling a confirmed slot is allowed; editing its details is not.
+    if (isCancellation) {
+      if (existingBooking.status !== 'PENDING' && existingBooking.status !== 'CONFIRMED') {
+        throw createError({
+          statusCode: 403,
+          message: 'Only pending or confirmed bookings can be cancelled'
+        })
+      }
+    } else if (existingBooking.status !== 'PENDING') {
       throw createError({
         statusCode: 403,
         message: 'Can only update bookings with PENDING status'
       })
     }
-
-    const data = await readValidatedBody(event, ownerUpdateBookingSchema.parse)
 
     await applyBookingChange(existingBooking, {
       ...data,
@@ -164,6 +190,16 @@ export default defineEventHandler(async (event) => {
     const updatedBooking = await findBooking(id)
     if (!updatedBooking) {
       throw createError({ statusCode: 404, message: 'Booking not found' })
+    }
+
+    // An external venue was arranged by hand, so someone has to unarrange it.
+    if (isCancellation) {
+      await notifyAdmins(
+        `Booking cancelled by member: ${updatedBooking.eventTitle}`,
+        buildMemberCancellationMessage(updatedBooking, user.name)
+      ).catch((err) => {
+        console.error('Failed to alert admins to a member cancellation:', err)
+      })
     }
 
     return updatedBooking

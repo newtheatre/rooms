@@ -26,6 +26,9 @@ export interface BookingPatch {
 /** A space is held by these, so a booking leaving them frees its slot. */
 const OCCUPYING: BookingStatus[] = ['CONFIRMED', 'PENDING', 'AWAITING_EXTERNAL']
 
+/** Once here a booking is finished with; reviving one re-takes a released slot. */
+const TERMINAL: BookingStatus[] = ['REJECTED', 'CANCELLED']
+
 /** Assigning one space clears the other: a booking is never in both. */
 function resolveSpace(existing: Booking, patch: BookingPatch) {
   if (patch.roomId !== undefined) return { roomId: patch.roomId, externalVenueId: null }
@@ -46,6 +49,14 @@ export async function applyBookingChange(
   const startTime = patch.startTime ?? existing.startTime
   const endTime = patch.endTime ?? existing.endTime
   const status = patch.status ?? existing.status
+
+  if (TERMINAL.includes(existing.status) && !TERMINAL.includes(status)) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Booking is closed',
+      message: `A ${existing.status.toLowerCase()} booking cannot be reopened. Create a new booking instead.`
+    })
+  }
 
   // A rejected or cancelled booking holds nothing, so it cannot conflict.
   if (OCCUPYING.includes(status)) {

@@ -49,8 +49,18 @@ The two roles are validated against different schemas.
 
 - **Admin** — `roomId`, `externalVenueId`, `status`, `rejectionReason`, `allowConflicts`.
 - **Owner, `PENDING` only** — `eventTitle`, `numberOfAttendees`, `startTime`, `endTime`, `notes`.
+- **Owner, `PENDING` or `CONFIRMED`** — `status: "CANCELLED"`, the only status an owner may set.
+
+An owner may cancel a confirmed slot but not edit one: giving the room back is theirs to
+decide, moving it is not. Every owner cancellation alerts the admins who have opted in, and
+names the external venue when there is one, because that booking was arranged by hand and
+someone has to unarrange it.
 
 A status change made by an admin notifies the owner, subject to their preferences.
+
+`REJECTED` and `CANCELLED` are terminal. Any change back out of them is refused with **409**,
+whoever asks: a released slot may have been given to someone else, so the booking has to be
+made again rather than reopened.
 
 Every write goes through `applyBookingChange` in `server/utils/bookingWrites.ts`, which
 re-checks occupancy for the booking as it will be *after* the patch. A change that would
