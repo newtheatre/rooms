@@ -148,7 +148,9 @@ export const ownerUpdateBookingSchema = z.object({
   numberOfAttendees: z.number().int().positive().optional(),
   startTime: z.iso.datetime('Invalid start time').optional(),
   endTime: z.iso.datetime('Invalid end time').optional(),
-  notes: z.string().max(1000).optional()
+  notes: z.string().max(1000).optional(),
+  // Cancelling is the only status an owner may set.
+  status: z.literal('CANCELLED').optional()
 }).refine(
   (data) => {
     if (data.startTime && data.endTime) {

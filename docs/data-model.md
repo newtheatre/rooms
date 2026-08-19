@@ -68,7 +68,13 @@ PENDING ──► CONFIRMED                       an internal room is assigned
 ```
 
 `CANCELLED` is terminal, and is available to the requester while the booking is `PENDING` or
-`CONFIRMED`.
+`CONFIRMED`. A requester who cancels alerts the admins who have opted in, naming the external
+venue when there is one, since that arrangement was made by hand.
+
+`REJECTED` and `CANCELLED` are both terminal and enforced as such in
+`server/utils/bookingWrites.ts`: a change back out of either is refused with 409, for admins
+too. The slot was released and may already belong to someone else, so the booking is made
+again rather than reopened.
 
 | Status | Meaning |
 | --- | --- |
