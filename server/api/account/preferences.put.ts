@@ -53,6 +53,14 @@ export default defineEventHandler(async (event) => {
   // Parse and validate request body
   const data = await readValidatedBody(event, updatePreferencesSchema.parse)
 
+  if (!data.notificationChannels && !data.notificationPreferences) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'No changes supplied',
+      message: 'Provide notificationChannels, notificationPreferences, or both.'
+    })
+  }
+
   // Update user preferences
   const updatedUser = requireRow(await db
     .update(schema.users)

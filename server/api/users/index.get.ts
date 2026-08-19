@@ -51,8 +51,7 @@ export default defineEventHandler(async (event) => {
 
   // Parse query parameters. Roles now live in the central auth service —
   // this mirror table has no role column to filter by.
-  const query = getQuery(event)
-  const searchFilter = query.search as string | undefined
+  const { search: searchFilter } = await getValidatedQuery(event, userListQuerySchema.parse)
 
   const where = searchFilter
     ? or(

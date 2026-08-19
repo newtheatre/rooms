@@ -2,6 +2,37 @@
 
 import { z } from 'zod'
 
+/**
+ * An all-optional body that parses to `{}` reaches Drizzle's `.set()`, which
+ * throws a bare Error and surfaces as a 500 rather than a 400.
+ */
+function atLeastOneField<T extends z.ZodRawShape>(schema: z.ZodObject<T>) {
+  return schema.refine(value => Object.keys(value).length > 0, {
+    message: 'Provide at least one field to update'
+  })
+}
+
+/** Query strings arrive as strings; these coerce and reject rather than cast. */
+const booleanFlag = z.enum(['true', 'false']).optional().transform(v => v === 'true')
+
+/**
+ * A bare `.parse` inside a handler throws a ZodError, which Nitro reports as a
+ * 500. Route bodies that cannot use `readValidatedBody` go through this.
+ */
+export function parseOr400<T>(schema: z.ZodType<T>, body: unknown): T {
+  const result = schema.safeParse(body)
+
+  if (!result.success) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Validation error',
+      data: { issues: result.error.issues }
+    })
+  }
+
+  return result.data
+}
+
 // Credential schemas (register, login, password, profile) were deleted at the
 // stage-door cutover: this app must never handle credentials.
 
@@ -46,6 +77,17 @@ export const recurringPatternSchema = z.object({
   }
 )
 
+/** An endDate at or before the booking start expands to nothing at all. */
+function endDateAfterStart(data: { startTime: string, recurringPattern?: { endDate?: string } }) {
+  const endDate = data.recurringPattern?.endDate
+  return !endDate || new Date(endDate) > new Date(data.startTime)
+}
+
+const endDateMessage = {
+  message: 'Recurrence end date must be after the booking starts',
+  path: ['recurringPattern', 'endDate']
+}
+
 export const createBookingSchema = z.object({
   eventTitle: z.string().min(1, 'Event title is required').max(255),
   numberOfAttendees: z.number().int().positive().optional(),
@@ -63,7 +105,7 @@ export const createBookingSchema = z.object({
     message: 'End time must be after start time',
     path: ['endTime']
   }
-)
+).refine(endDateAfterStart, endDateMessage)
 
 /**
  * Admin create booking schema (allows setting userId, roomId, externalVenueId, status)
@@ -101,7 +143,7 @@ export const adminCreateBookingSchema = z.object({
     message: 'Cannot assign both room and external venue',
     path: ['roomId']
   }
-)
+).refine(endDateAfterStart, endDateMessage)
 
 /**
  * Update booking schema (admin)
@@ -176,6 +218,54 @@ export const createVenueSchema = z.object({
   building: z.string().min(1, 'Building is required').max(255),
   roomName: z.string().min(1, 'Room name is required').max(255),
   contactDetails: z.string().max(500).optional()
+})
+
+/**
+ * Written out rather than derived: `.partial()` keeps `isActive`'s default, so
+ * a body that omits it would silently reactivate a deactivated room.
+ */
+export const updateRoomSchema = atLeastOneField(z.object({
+  name: z.string().min(1, 'Room name is required').max(255).optional(),
+  description: z.string().max(1000).optional(),
+  capacity: z.number().int().positive().optional(),
+  isActive: z.boolean().optional()
+}))
+
+export const updateVenueSchema = atLeastOneField(createVenueSchema.partial())
+
+export const bookingQuerySchema = z.object({
+  status: bookingStatusSchema.optional(),
+  startDate: z.iso.datetime('Invalid start date').optional(),
+  endDate: z.iso.datetime('Invalid end date').optional(),
+  roomId: z.coerce.number().int().positive().optional()
+})
+
+export const roomListQuerySchema = z.object({
+  includeInactive: booleanFlag
+})
+
+export const userListQuerySchema = z.object({
+  search: z.string().max(255).optional()
+})
+
+export const venueListQuerySchema = z.object({
+  campus: z.string().max(255).optional(),
+  building: z.string().max(255).optional()
+})
+
+export const availableRoomsQuerySchema = z.object({
+  startTime: z.iso.datetime('Invalid start time'),
+  endTime: z.iso.datetime('Invalid end time'),
+  excludeBookingId: z.coerce.number().int().positive().optional(),
+  includeInactive: booleanFlag,
+  includeUnavailable: booleanFlag
+}).refine(
+  data => new Date(data.endTime) > new Date(data.startTime),
+  { message: 'End time must be after start time', path: ['endTime'] }
+)
+
+export const roomDeleteQuerySchema = z.object({
+  permanent: booleanFlag
 })
 
 export const pushSubscriptionSchema = z.object({
