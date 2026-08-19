@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import type { CalendarDate } from '@internationalized/date'
-import { DateFormatter } from '@internationalized/date'
+
 import { debounce } from 'perfect-debounce'
 
 const emit = defineEmits<{
@@ -81,8 +81,6 @@ const venueItems = computed(() =>
     label: `${v.building} - ${v.roomName}`
   })) ?? []
 )
-
-const df = new DateFormatter('en-US', { dateStyle: 'medium' })
 
 const formSchema = z.object({
   userId: z.string().min(1, 'User is required'),
@@ -355,7 +353,7 @@ watch(() => state.externalVenueId, (newVal) => {
                   icon="i-lucide-calendar"
                   class="w-full justify-start"
                 >
-                  {{ state.eventDate ? df.format((state.eventDate as CalendarDate).toDate('UTC')) : 'Select a date' }}
+                  {{ state.eventDate ? formatCalendarDate(state.eventDate as CalendarDate) : 'Select a date' }}
                 </UButton>
 
                 <template #content>

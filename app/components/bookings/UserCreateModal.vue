@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import type { CalendarDate } from '@internationalized/date'
-import { DateFormatter } from '@internationalized/date'
+
 import { debounce } from 'perfect-debounce'
 
 const emit = defineEmits<{
@@ -76,8 +76,6 @@ const allVenueOptions = computed(() => [
 ])
 
 const _venuesStatus = venuesStatus
-
-const df = new DateFormatter('en-US', { dateStyle: 'medium' })
 
 const formSchema = z.object({
   eventTitle: z.string().min(1, 'Event title is required').max(255),
@@ -319,7 +317,7 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
                   class="w-full justify-start"
                   size="lg"
                 >
-                  {{ state.eventDate ? df.format((state.eventDate as CalendarDate).toDate('UTC')) : 'Select a date' }}
+                  {{ state.eventDate ? formatCalendarDate(state.eventDate as CalendarDate) : 'Select a date' }}
                 </UButton>
 
                 <template #content>

@@ -20,12 +20,16 @@ export interface BookingNotification {
   message: string
 }
 
+export const LONDON = 'Europe/London'
+
 /** e.g. "Mon, 15 Jan 2024 at 2:00 pm - 4:00 pm". */
 export function formatBookingDateTime(booking: Booking): string {
   const startDate = new Date(booking.startTime)
   const endDate = new Date(booking.endTime)
 
+  // The Worker runs in UTC, so an unpinned zone is an hour out through BST.
   const dateOptions: Intl.DateTimeFormatOptions = {
+    timeZone: LONDON,
     weekday: 'short',
     year: 'numeric',
     month: 'short',
@@ -33,6 +37,7 @@ export function formatBookingDateTime(booking: Booking): string {
   }
 
   const timeOptions: Intl.DateTimeFormatOptions = {
+    timeZone: LONDON,
     hour: 'numeric',
     minute: '2-digit',
     hour12: true

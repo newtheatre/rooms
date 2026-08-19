@@ -195,16 +195,11 @@ export default defineEventHandler(async (event) => {
     })
 
     if (adminsToNotify.length > 0) {
-      const df = new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      })
-
       const adminMessage = `
         New booking request submitted by ${booking.user?.name || 'Unknown User'}
-        
+
         Event: ${booking.eventTitle}
-        Date: ${df.format(booking.startTime)} - ${df.format(booking.endTime)}
+        Date: ${formatBookingDateTime(booking)}
         ${booking.numberOfAttendees ? `Attendees: ${booking.numberOfAttendees}` : ''}
         ${booking.notes ? `Notes: ${booking.notes}` : ''}
         

@@ -42,16 +42,6 @@ const badgeColor = computed(() => {
   }
   return 'warning'
 })
-
-const formatDateTime = (dateStr: string) => {
-  const date = new Date(dateStr)
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  }).format(date)
-}
 </script>
 
 <template>
