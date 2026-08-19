@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
   // Require authentication but allow all users
   await requireAuth(event)
 
-  const { includeInactive } = await getValidatedQuery(event, roomListQuerySchema.parse)
+  const { includeInactive, limit, offset } = await getValidatedQuery(event, roomListQuerySchema.parse)
 
   // Only admins can see inactive rooms
   const isAdmin = await canNow(event, 'room.read.inactive')
@@ -60,31 +60,48 @@ export default defineEventHandler(async (event) => {
 
   // Non-admins get an explicit column list, never the whole row.
   if (!isAdmin) {
-    return await db
+    const where = eq(schema.rooms.isActive, true)
+    const [items, total] = await Promise.all([
+      db
+        .select({
+          id: schema.rooms.id,
+          name: schema.rooms.name,
+          description: schema.rooms.description,
+          capacity: schema.rooms.capacity
+        })
+        .from(schema.rooms)
+        .where(where)
+        .orderBy(asc(schema.rooms.name))
+        .limit(limit)
+        .offset(offset),
+      countRows(schema.rooms, where)
+    ])
+
+    return { items, total, limit, offset }
+  }
+
+  const where = showInactive ? undefined : eq(schema.rooms.isActive, true)
+
+  const [items, total] = await Promise.all([
+    db
       .select({
         id: schema.rooms.id,
         name: schema.rooms.name,
         description: schema.rooms.description,
-        capacity: schema.rooms.capacity
+        capacity: schema.rooms.capacity,
+        isActive: schema.rooms.isActive,
+        createdAt: schema.rooms.createdAt,
+        bookingCount: count(schema.bookings.id)
       })
       .from(schema.rooms)
-      .where(eq(schema.rooms.isActive, true))
+      .leftJoin(schema.bookings, eq(schema.bookings.roomId, schema.rooms.id))
+      .where(where)
+      .groupBy(schema.rooms.id)
       .orderBy(asc(schema.rooms.name))
-  }
+      .limit(limit)
+      .offset(offset),
+    countRows(schema.rooms, where)
+  ])
 
-  return await db
-    .select({
-      id: schema.rooms.id,
-      name: schema.rooms.name,
-      description: schema.rooms.description,
-      capacity: schema.rooms.capacity,
-      isActive: schema.rooms.isActive,
-      createdAt: schema.rooms.createdAt,
-      bookingCount: count(schema.bookings.id)
-    })
-    .from(schema.rooms)
-    .leftJoin(schema.bookings, eq(schema.bookings.roomId, schema.rooms.id))
-    .where(showInactive ? undefined : eq(schema.rooms.isActive, true))
-    .groupBy(schema.rooms.id)
-    .orderBy(asc(schema.rooms.name))
+  return { items, total, limit, offset }
 })

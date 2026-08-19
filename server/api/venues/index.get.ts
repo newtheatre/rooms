@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
   // Require authentication but allow all users
   await requireAuth(event)
 
-  const { campus, building } = await getValidatedQuery(event, venueListQuerySchema.parse)
+  const { campus, building, limit, offset } = await getValidatedQuery(event, venueListQuerySchema.parse)
 
   const where = and(
     campus ? eq(schema.externalVenues.campus, campus) : undefined,
@@ -75,32 +75,46 @@ export default defineEventHandler(async (event) => {
 
   // Non-admins get an explicit column list, never the whole row.
   if (!isAdmin) {
-    return await db
+    const [items, total] = await Promise.all([
+      db
+        .select({
+          id: schema.externalVenues.id,
+          campus: schema.externalVenues.campus,
+          building: schema.externalVenues.building,
+          roomName: schema.externalVenues.roomName,
+          contactDetails: schema.externalVenues.contactDetails
+        })
+        .from(schema.externalVenues)
+        .where(where)
+        .orderBy(...order)
+        .limit(limit)
+        .offset(offset),
+      countRows(schema.externalVenues, where)
+    ])
+
+    return { items, total, limit, offset }
+  }
+
+  const [items, total] = await Promise.all([
+    db
       .select({
         id: schema.externalVenues.id,
         campus: schema.externalVenues.campus,
         building: schema.externalVenues.building,
         roomName: schema.externalVenues.roomName,
-        contactDetails: schema.externalVenues.contactDetails
+        contactDetails: schema.externalVenues.contactDetails,
+        createdAt: schema.externalVenues.createdAt,
+        bookingCount: count(schema.bookings.id)
       })
       .from(schema.externalVenues)
+      .leftJoin(schema.bookings, eq(schema.bookings.externalVenueId, schema.externalVenues.id))
       .where(where)
+      .groupBy(schema.externalVenues.id)
       .orderBy(...order)
-  }
+      .limit(limit)
+      .offset(offset),
+    countRows(schema.externalVenues, where)
+  ])
 
-  return await db
-    .select({
-      id: schema.externalVenues.id,
-      campus: schema.externalVenues.campus,
-      building: schema.externalVenues.building,
-      roomName: schema.externalVenues.roomName,
-      contactDetails: schema.externalVenues.contactDetails,
-      createdAt: schema.externalVenues.createdAt,
-      bookingCount: count(schema.bookings.id)
-    })
-    .from(schema.externalVenues)
-    .leftJoin(schema.bookings, eq(schema.bookings.externalVenueId, schema.externalVenues.id))
-    .where(where)
-    .groupBy(schema.externalVenues.id)
-    .orderBy(...order)
+  return { items, total, limit, offset }
 })

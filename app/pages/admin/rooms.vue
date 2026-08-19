@@ -42,7 +42,8 @@ const columnVisibility = ref()
 const rowSelection = ref<Record<string, boolean>>({})
 
 // Fetch rooms
-const { data, status, refresh } = await useFetch<Room[]>('/api/rooms', {
+const { data, status, refresh } = await useFetch('/api/rooms', {
+  transform: (r: { items: Room[] }) => r.items,
   lazy: true,
   query: { includeInactive: 'true' }
 })

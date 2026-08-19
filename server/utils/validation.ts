@@ -249,7 +249,14 @@ export const updateRoomSchema = atLeastOneField(z.object({
 
 export const updateVenueSchema = atLeastOneField(createVenueSchema.partial())
 
+/** Shared by every list endpoint. 200 is the largest page a client may ask for. */
+export const pageQuery = {
+  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+  offset: z.coerce.number().int().min(0).optional().default(0)
+}
+
 export const bookingQuerySchema = z.object({
+  ...pageQuery,
   status: bookingStatusSchema.optional(),
   startDate: z.iso.datetime('Invalid start date').optional(),
   endDate: z.iso.datetime('Invalid end date').optional(),
@@ -257,14 +264,17 @@ export const bookingQuerySchema = z.object({
 })
 
 export const roomListQuerySchema = z.object({
+  ...pageQuery,
   includeInactive: booleanFlag
 })
 
 export const userListQuerySchema = z.object({
+  ...pageQuery,
   search: z.string().max(255).optional()
 })
 
 export const venueListQuerySchema = z.object({
+  ...pageQuery,
   campus: z.string().max(255).optional(),
   building: z.string().max(255).optional()
 })
@@ -279,6 +289,11 @@ export const availableRoomsQuerySchema = z.object({
   data => new Date(data.endTime) > new Date(data.startTime),
   { message: 'End time must be after start time', path: ['endTime'] }
 )
+
+export const bookingUpdateQuerySchema = z.object({
+  // 'series' applies the change to every occurrence that is not finished.
+  scope: z.enum(['occurrence', 'series']).optional().default('occurrence')
+})
 
 export const bookingDeleteQuerySchema = z.object({
   // 'occurrence' keeps the rest of the series; 'series' removes all of it.

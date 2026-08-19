@@ -1,33 +1,17 @@
 <script setup lang="ts">
-interface Booking {
-  id: number
-  userId: string | null
-  status: 'PENDING' | 'CONFIRMED' | 'AWAITING_EXTERNAL' | 'REJECTED' | 'CANCELLED'
-  startTime: string
-  endTime: string
+interface BookingCounts {
+  total: number
+  pending: number
+  confirmed: number
+  upcoming: number
 }
 
-const { user } = useUserSession()
-const { data: bookings } = await useFetch<Booking[]>('/api/bookings')
+const empty: BookingCounts = { total: 0, pending: 0, confirmed: 0, upcoming: 0 }
 
-// Filter to only show current user's bookings (important for admins who get all bookings from API)
-const userBookings = computed(() => {
-  if (!bookings.value || !user.value?.id) return []
-  return bookings.value.filter(b => b.userId === user.value?.id)
-})
+// Four integers from SQL, rather than every booking to count them here.
+const { data } = await useFetch<BookingCounts>('/api/bookings/stats')
 
-const stats = computed(() => {
-  const all = userBookings.value
-
-  return {
-    total: all.length,
-    pending: all.filter(b => b.status === 'PENDING').length,
-    confirmed: all.filter(b => b.status === 'CONFIRMED').length,
-    upcoming: all.filter((b) => {
-      return b.status === 'CONFIRMED' && new Date(b.startTime) > new Date()
-    }).length
-  }
-})
+const stats = computed(() => data.value ?? empty)
 </script>
 
 <template>

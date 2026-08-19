@@ -12,6 +12,11 @@ export function seriesParentId(booking: Booking): number {
   return booking.parentBookingId ?? booking.id
 }
 
+/** Still holding a slot, so still worth applying a series-wide change to. */
+export function isOpen(booking: Booking): boolean {
+  return booking.status !== 'REJECTED' && booking.status !== 'CANCELLED'
+}
+
 export function isSeriesMember(booking: Booking): boolean {
   return booking.parentBookingId !== null || booking.occurrenceNumber !== null
 }

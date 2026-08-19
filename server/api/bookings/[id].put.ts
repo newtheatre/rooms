@@ -6,6 +6,7 @@ import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { notifyBookingUpdate, notifyAdmins, bookingStatusMessage, formatBookingDateTime } from '~~/server/utils/notifications'
 import { applyBookingChange } from '~~/server/utils/bookingWrites'
+import { isOpen, isSeriesMember, seriesBookings, seriesParentId } from '~~/server/utils/bookingSeries'
 
 defineRouteMeta({
   openAPI: {
@@ -115,15 +116,31 @@ export default defineEventHandler(async (event) => {
   if (await canNow(event, 'booking.manage.any')) {
     // Admin can update booking assignment and status
     const data = await readValidatedBody(event, updateBookingSchema.parse)
+    const { scope } = await getValidatedQuery(event, bookingUpdateQuerySchema.parse)
 
     // Track if status changed for notification
     const statusChanged = data.status && data.status !== existingBooking.status
 
-    await applyBookingChange(existingBooking, {
+    const patch = {
       ...data,
       ...(data.startTime && { startTime: new Date(data.startTime) }),
       ...(data.endTime && { endTime: new Date(data.endTime) })
-    }, { allowConflicts: data.allowConflicts })
+    }
+
+    // Resolved server-side: deriving the series from the rows a client happens
+    // to hold would silently shrink once the list is paged.
+    const targets = scope === 'series' && isSeriesMember(existingBooking)
+      ? (await seriesBookings(seriesParentId(existingBooking))).filter(isOpen)
+      : [existingBooking]
+
+    for (const target of targets) {
+      // Moving a whole series to one instant would stack every occurrence.
+      const perTarget = target.id === existingBooking.id
+        ? patch
+        : { ...patch, startTime: undefined, endTime: undefined }
+
+      await applyBookingChange(target, perTarget, { allowConflicts: data.allowConflicts })
+    }
 
     const updatedBooking = await findBooking(id)
     if (!updatedBooking) {
