@@ -102,12 +102,10 @@ Recorded here rather than left to be discovered:
 - **Web push is not implemented.** `/api/notifications/subscribe` records a subscription and the
   settings page offers the PUSH channel, but `sendPushNotification` logs and returns
   (`server/utils/notifications.ts`). Selecting PUSH delivers nothing.
-- **Two tables still filter and page in the browser.** `/admin/bookings` and `/requests` request
-  the largest page the API allows (200) and do their filtering, sorting and paging client-side.
-  The endpoints page in SQL, so the fix is to move those two tables onto server-side paging;
-  until then a society with more than 200 bookings will not see the oldest ones on those pages.
-  The pickers in the booking modals have the same 200-row ceiling, which matters first for the
-  admin "book on behalf of" user list.
+- **Two tables still filter and page in the browser.** `/admin/bookings` and `/requests` filter,
+  sort and page client-side, so they walk every page of the API to get the whole list back
+  (`fetchAllPages`). The endpoints themselves page in SQL; moving those two tables onto it is
+  what remains, and until then they still transfer the whole table, just in 200-row requests.
 - **`PUT /api/bookings/bulk` re-reads each booking after updating it**, so a long batch is two
   round-trips per row. The writes themselves are one statement each, which the D1 parameter cap
   requires.

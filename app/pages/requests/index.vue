@@ -41,10 +41,7 @@ const page = ref(1)
 const pageSize = ref(10)
 
 // Fetch bookings
-const { data: bookings, status, refresh } = await useFetch('/api/bookings', {
-  transform: (r: { items: Booking[] }) => r.items,
-  query: { limit: '200' }
-})
+const { data: bookings, status, refresh } = await useAsyncData('my-bookings', () => fetchAllPages<Booking>('/api/bookings'))
 
 // Filter to only show current user's bookings (important for admins who get all bookings from API)
 const userBookings = computed(() => {

@@ -78,13 +78,13 @@ const pagination = ref({
   pageSize: 10
 })
 
-// Filtered and paged in the browser, so it asks for the largest page the
-// API allows (README §Known gaps).
-const { data: bookings, status, refresh: refreshBookings } = await useFetch('/api/bookings', {
-  transform: (r: { items: Booking[] }) => r.items,
-  query: { limit: '200' },
-  lazy: true
-})
+// Filtered and paged in the browser, so it still needs every row
+// (README §Known gaps).
+const { data: bookings, status, refresh: refreshBookings } = await useAsyncData(
+  'admin-bookings',
+  () => fetchAllPages<Booking>('/api/bookings'),
+  { lazy: true }
+)
 
 const { data: rooms } = await useFetch('/api/rooms', {
   key: 'active-rooms',

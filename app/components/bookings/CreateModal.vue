@@ -25,11 +25,7 @@ const {
 
 const showUnavailableRooms = ref(false)
 
-const { data: users, status: usersStatus, refresh: refreshUsers } = useLazyFetch('/api/users', {
-  key: 'users',
-  transform: (r: { items: UserOption[] }) => r.items,
-  query: { limit: '200' }
-})
+const { data: users, status: usersStatus, refresh: refreshUsers } = useLazyAsyncData('users', () => fetchAllPages<UserOption>('/api/users'))
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
   key: 'active-rooms',
   transform: (r: { items: Room[] }) => r.items,
