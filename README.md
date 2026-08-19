@@ -102,8 +102,9 @@ Recorded here rather than left to be discovered:
 - **Web push is not implemented.** `/api/notifications/subscribe` records a subscription and the
   settings page offers the PUSH channel, but `sendPushNotification` logs and returns
   (`server/utils/notifications.ts`). Selecting PUSH delivers nothing.
-- **`getAvailableRooms` queries per room**, so listing availability across N rooms costs N+1
-  queries. Correct, but wasteful on D1, which bills per query.
+- **`PUT /api/bookings/bulk` re-reads each booking after updating it**, so a long batch is two
+  round-trips per row. The writes themselves are one statement each, which the D1 parameter cap
+  requires.
 - **Venue assignment has no availability preview.** There is no `/api/venues/available` to match
   the rooms one, so the admin venue picker does not mark which venues are taken. Assigning a
   clashing venue is still refused server-side with a 409, so this costs a wasted click rather

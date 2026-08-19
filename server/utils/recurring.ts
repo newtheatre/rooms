@@ -298,29 +298,28 @@ export async function createRecurringBookings(
     })
     .returning())
 
-  // One insert per occurrence: a single multi-row insert would bind more than
-  // D1's 100 parameters at the upper end of maxOccurrences (CLAUDE.md 10).
-  const childBookings: Booking[] = []
-  for (let i = 1; i < occurrences.length; i++) {
-    const occurrence = occurrences[i]!
-    const childBooking = requireRow(await db
-      .insert(schema.bookings)
-      .values({
-        userId: parentBookingData.userId || null,
-        eventTitle: parentBookingData.eventTitle,
-        numberOfAttendees: parentBookingData.numberOfAttendees,
-        startTime: occurrence.startTime,
-        endTime: occurrence.endTime,
-        roomId: parentBookingData.roomId,
-        externalVenueId: parentBookingData.externalVenueId,
-        status: parentBookingData.status,
-        notes: parentBookingData.notes,
-        parentBookingId: parentBooking.id,
-        occurrenceNumber: occurrence.occurrenceNumber
-      })
-      .returning())
-    childBookings.push(childBooking)
-  }
+  // One statement per occurrence, so each binds a fixed parameter count
+  // (CLAUDE.md 10), but sent in a single round-trip rather than N of them.
+  const inserts = occurrences.slice(1).map(occurrence => db
+    .insert(schema.bookings)
+    .values({
+      userId: parentBookingData.userId || null,
+      eventTitle: parentBookingData.eventTitle,
+      numberOfAttendees: parentBookingData.numberOfAttendees,
+      startTime: occurrence.startTime,
+      endTime: occurrence.endTime,
+      roomId: parentBookingData.roomId,
+      externalVenueId: parentBookingData.externalVenueId,
+      status: parentBookingData.status,
+      notes: parentBookingData.notes,
+      parentBookingId: parentBooking.id,
+      occurrenceNumber: occurrence.occurrenceNumber
+    })
+    .returning())
+
+  const childBookings: Booking[] = inserts.length
+    ? (await db.batch(inserts as [typeof inserts[number], ...typeof inserts])).map(rows => requireRow(rows))
+    : []
 
   return {
     parentBooking,

@@ -25,11 +25,12 @@ const {
 
 const showUnavailableRooms = ref(false)
 
-const { data: users, status: usersStatus, refresh: refreshUsers } = useLazyFetch('/api/users')
+const { data: users, status: usersStatus, refresh: refreshUsers } = useLazyFetch('/api/users', { key: 'users' })
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
+  key: 'active-rooms',
   query: { includeInactive: 'false' }
 })
-const { data: venues, status: venuesStatus, refresh: refreshVenues } = useLazyFetch('/api/venues')
+const { data: venues, status: venuesStatus, refresh: refreshVenues } = useLazyFetch('/api/venues', { key: 'venues' })
 
 watch(open, (isOpen) => {
   if (isOpen) {
