@@ -34,7 +34,7 @@ const rows = computed(() => (users.value ?? []).map(user => ({
   name: user.name,
   email: user.email,
   bookingCount: user.bookingCount,
-  created: new Date(user.createdAt).toLocaleDateString('en-GB')
+  created: formatDate(user.createdAt)
 })))
 </script>
 

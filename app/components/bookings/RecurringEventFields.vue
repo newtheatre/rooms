@@ -4,8 +4,6 @@
  */
 
 <script setup lang="ts">
-import { DateFormatter } from '@internationalized/date'
-
 interface Props {
   isRecurring: boolean
   frequency: 'DAILY' | 'WEEKLY' | 'CUSTOM'
@@ -90,8 +88,6 @@ const alertMessage = computed(() => {
     description: 'Recurring bookings are subject to administrator approval and room availability for all dates.'
   }
 })
-
-const df = new DateFormatter('en-US', { dateStyle: 'medium' })
 </script>
 
 <template>
@@ -181,7 +177,7 @@ const df = new DateFormatter('en-US', { dateStyle: 'medium' })
           <template #description>
             <span v-if="frequency === 'DAILY'">
               <template v-if="context === 'admin' && eventDate">
-                Every day for {{ maxOccurrences }} days starting from {{ df.format(eventDate.toDate('UTC')) }}
+                Every day for {{ maxOccurrences }} days starting from {{ formatCalendarDate(eventDate) }}
               </template>
               <template v-else>
                 A booking will be created for {{ maxOccurrences }} consecutive days.

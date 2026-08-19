@@ -1009,9 +1009,9 @@ const columns: TableColumn<Booking>[] = [
       const start = new Date(row.original.startTime)
       const end = new Date(row.original.endTime)
       return h('div', undefined, [
-        h('p', { class: 'text-sm font-medium' }, start.toLocaleDateString()),
+        h('p', { class: 'text-sm font-medium' }, formatDate(start)),
         h('p', { class: 'text-sm text-muted' },
-          `${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          `${formatTime(start)} - ${formatTime(end)}`
         )
       ])
     }

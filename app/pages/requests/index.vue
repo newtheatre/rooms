@@ -4,8 +4,6 @@
  */
 
 <script setup lang="ts">
-import { DateFormatter } from '@internationalized/date'
-
 definePageMeta({
   middleware: ['auth']
 })
@@ -34,7 +32,6 @@ interface Booking {
 }
 
 const toast = useToast()
-const df = new DateFormatter('en-US', { dateStyle: 'medium', timeStyle: 'short' })
 const { user } = useUserSession()
 
 // State
@@ -117,9 +114,9 @@ const columns = [
       const start = new Date(booking.startTime)
       const end = new Date(booking.endTime)
       return h('div', { class: 'text-sm' }, [
-        h('div', { class: 'font-medium' }, df.format(start)),
+        h('div', { class: 'font-medium' }, formatDateTime(start)),
         h('div', { class: 'text-gray-500 dark:text-gray-400' },
-          `to ${end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+          `to ${formatTime(end)}`
         )
       ])
     }
