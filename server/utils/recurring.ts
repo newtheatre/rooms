@@ -7,6 +7,8 @@ import { db, schema } from '@nuxthub/db'
 import { asc, eq, or } from 'drizzle-orm'
 import type { RecurringPattern, Booking } from '~~/server/db/schema/booking'
 import { checkRoomAvailability, checkVenueAvailability } from './availability'
+import type { LondonParts } from './london'
+import { addLondonDays, fromLondonParts, londonParts, londonWeekday } from './london'
 
 export interface RecurringPatternInput {
   frequency: 'DAILY' | 'WEEKLY' | 'CUSTOM'
@@ -95,87 +97,57 @@ export function generateRecurringOccurrences(
   const interval = pattern.interval || 1
   const duration = baseEndTime.getTime() - baseStartTime.getTime()
 
-  let currentDate = new Date(baseStartTime)
+  // Held as London wall-clock parts, so 19:00 stays 19:00 across a clock change.
+  const base = londonParts(baseStartTime)
+  let cursor = base
   let occurrenceNumber = 1
 
+  const push = (parts: LondonParts): boolean => {
+    const startTime = fromLondonParts(parts)
+    if (startTime < baseStartTime) return false
+    if (pattern.endDate && startTime > pattern.endDate) return false
+
+    occurrences.push({
+      occurrenceNumber,
+      startTime,
+      endTime: new Date(startTime.getTime() + duration)
+    })
+    occurrenceNumber++
+    return true
+  }
+
   // Generate occurrences
+  let steps = 0
   while (occurrenceNumber <= pattern.maxOccurrences) {
-    if (pattern.endDate && currentDate > pattern.endDate) {
+    if (++steps > MAX_OCCURRENCES * 10) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Pattern generation error',
+        message: 'This pattern does not produce the requested number of bookings.'
+      })
+    }
+
+    if (pattern.endDate && fromLondonParts(cursor) > pattern.endDate) {
       break
     }
 
-    if (pattern.frequency === 'DAILY') {
-      // Daily recurrence
-      const startTime = new Date(currentDate)
-      const endTime = new Date(currentDate.getTime() + duration)
-
-      occurrences.push({
-        occurrenceNumber,
-        startTime,
-        endTime
-      })
-
-      // Move to next occurrence
-      currentDate = new Date(currentDate)
-      currentDate.setDate(currentDate.getDate() + interval)
-      occurrenceNumber++
-    } else if (pattern.frequency === 'WEEKLY') {
-      // Weekly recurrence - generate for each specified day of week
-      const weekStartDate = new Date(currentDate)
+    if (pattern.frequency === 'WEEKLY') {
       const selectedDays = pattern.daysOfWeek!.map(day => DAYS_OF_WEEK_MAP[day])
 
-      // For each day in the current week
       for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-        const checkDate = new Date(weekStartDate)
-        checkDate.setDate(checkDate.getDate() + dayOffset)
+        if (occurrenceNumber > pattern.maxOccurrences) break
 
-        if (selectedDays.includes(checkDate.getDay())) {
-          // This day is selected
-          const startTime = new Date(checkDate)
-          startTime.setHours(baseStartTime.getHours(), baseStartTime.getMinutes(), 0, 0)
-
-          const endTime = new Date(startTime.getTime() + duration)
-
-          // Only add if it's not before the base date and within limits
-          if (startTime >= baseStartTime && occurrenceNumber <= pattern.maxOccurrences) {
-            if (!pattern.endDate || startTime <= pattern.endDate) {
-              occurrences.push({
-                occurrenceNumber,
-                startTime,
-                endTime
-              })
-              occurrenceNumber++
-            }
-          }
+        const day = addLondonDays(cursor, dayOffset)
+        if (selectedDays.includes(londonWeekday(day))) {
+          push({ ...day, hour: base.hour, minute: base.minute })
         }
       }
 
-      // Move to next week(s)
-      currentDate = new Date(weekStartDate)
-      currentDate.setDate(currentDate.getDate() + (7 * interval))
-    } else if (pattern.frequency === 'CUSTOM') {
-      // Custom interval in days
-      const startTime = new Date(currentDate)
-      const endTime = new Date(currentDate.getTime() + duration)
-
-      occurrences.push({
-        occurrenceNumber,
-        startTime,
-        endTime
-      })
-
-      currentDate = new Date(currentDate)
-      currentDate.setDate(currentDate.getDate() + interval)
-      occurrenceNumber++
-    }
-
-    // Safety check to prevent infinite loops
-    if (occurrences.length > MAX_OCCURRENCES * 10) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: 'Pattern generation error',
-        message: 'Too many occurrences generated, please check your pattern'
-      })
+      cursor = addLondonDays(cursor, 7 * interval)
+    } else {
+      // DAILY and CUSTOM differ only in the size of the step.
+      push(cursor)
+      cursor = addLondonDays(cursor, interval)
     }
   }
 
