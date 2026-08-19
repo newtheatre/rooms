@@ -131,11 +131,12 @@ export default defineEventHandler(async (event) => {
     const statusChanged = data.status && data.status !== existingBooking.status
 
     // One statement per booking: a fixed parameter count regardless of batch.
+    const { startTime, endTime, allowConflicts, ...rest } = data
     await applyBookingChange(existingBooking, {
-      ...data,
-      ...(data.startTime && { startTime: new Date(data.startTime) }),
-      ...(data.endTime && { endTime: new Date(data.endTime) })
-    }, { allowConflicts: data.allowConflicts })
+      ...rest,
+      ...(startTime && { startTime: new Date(startTime) }),
+      ...(endTime && { endTime: new Date(endTime) })
+    }, { allowConflicts })
 
     const updatedBooking = await findBooking(update.id)
     if (!updatedBooking) continue

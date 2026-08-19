@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RoomOption, VenueOption, UserOption } from '~/types/api'
 import * as z from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import type { CalendarDate } from '@internationalized/date'
@@ -22,19 +23,19 @@ const {
   fetchAvailability,
   totalAvailable,
   totalUnavailable
-} = useRoomAvailability({ autoFetch: false, includeUnavailable: true })
+} = useRoomAvailability({ includeUnavailable: true })
 
 const showUnavailableRooms = ref(false)
 
 const { data: users, status: usersStatus, refresh: refreshUsers } = useLazyAsyncData('users', () => fetchAllPages<UserOption>('/api/users'))
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
   key: 'active-rooms',
-  transform: (r: { items: Room[] }) => r.items,
+  transform: (r: { items: RoomOption[] }) => r.items,
   query: { includeInactive: 'false', limit: '200' }
 })
 const { data: venues, status: venuesStatus, refresh: refreshVenues } = useLazyFetch('/api/venues', {
   key: 'venues',
-  transform: (r: { items: Venue[] }) => r.items,
+  transform: (r: { items: VenueOption[] }) => r.items,
   query: { limit: '200' }
 })
 

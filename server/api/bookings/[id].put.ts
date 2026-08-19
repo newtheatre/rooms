@@ -5,6 +5,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { notifyBookingUpdate, notifyAdmins, bookingStatusMessage, formatBookingDateTime } from '~~/server/utils/notifications'
+import type { BookingPatch } from '~~/server/utils/bookingWrites'
 import { applyBookingChange } from '~~/server/utils/bookingWrites'
 import { isOpen, isSeriesMember, seriesBookings, seriesParentId } from '~~/server/utils/bookingSeries'
 
@@ -121,10 +122,11 @@ export default defineEventHandler(async (event) => {
     // Track if status changed for notification
     const statusChanged = data.status && data.status !== existingBooking.status
 
-    const patch = {
-      ...data,
-      ...(data.startTime && { startTime: new Date(data.startTime) }),
-      ...(data.endTime && { endTime: new Date(data.endTime) })
+    const { startTime, endTime, allowConflicts, ...rest } = data
+    const patch: BookingPatch = {
+      ...rest,
+      ...(startTime && { startTime: new Date(startTime) }),
+      ...(endTime && { endTime: new Date(endTime) })
     }
 
     // Resolved server-side: deriving the series from the rows a client happens
@@ -139,7 +141,7 @@ export default defineEventHandler(async (event) => {
         ? patch
         : { ...patch, startTime: undefined, endTime: undefined }
 
-      await applyBookingChange(target, perTarget, { allowConflicts: data.allowConflicts })
+      await applyBookingChange(target, perTarget, { allowConflicts })
     }
 
     const updatedBooking = await findBooking(id)
@@ -189,10 +191,11 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    const { startTime, endTime, ...rest } = data
     await applyBookingChange(existingBooking, {
-      ...data,
-      ...(data.startTime && { startTime: new Date(data.startTime) }),
-      ...(data.endTime && { endTime: new Date(data.endTime) })
+      ...rest,
+      ...(startTime && { startTime: new Date(startTime) }),
+      ...(endTime && { endTime: new Date(endTime) })
     })
 
     const updatedBooking = await findBooking(id)
