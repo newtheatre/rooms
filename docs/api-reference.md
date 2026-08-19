@@ -11,6 +11,11 @@ carries the behaviour that block cannot express.
 | `requireAuth(event)` | 401 unless there is a valid session |
 | `requireAdmin(event)` | 401 unless signed in; **401 with `{ stale: true }`** if the session's roles are older than 15 minutes, which the client middleware turns into a refresh; 403 unless the session carries `rooms:ADMIN` |
 | `requireHookAuth(event)` | Bearer must be the SHA-256 of this app's service token. Used only by the `_hooks` routes, which the auth service calls. |
+| `canNow(event, permission)` | A permission claim, staleness-checked on the same 15-minute rule as `requireAdmin`. Someone who does not hold the permission gets `false`, not a refresh prompt. |
+
+**Every permission claim is staleness-checked**, whether the route guards itself with
+`requireAdmin` or asks `canNow` for one permission. A role revoked centrally stops working within
+15 minutes on every route, rather than only on the ones that happened to use `requireAdmin`.
 
 `rooms:ADMIN` is the only role this app owns. Being signed in is enough to request a booking.
 

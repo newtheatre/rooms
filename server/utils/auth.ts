@@ -7,6 +7,28 @@ import type { H3Event } from 'h3'
 import type { User } from '#auth-utils'
 
 /**
+ * A permission claim, refused if the roles backing it are too old to trust.
+ * Someone without the permission gets `false` rather than a refresh prompt.
+ */
+export async function canNow(event: H3Event, permission: Permission): Promise<boolean> {
+  const session = await getUserSession(event)
+
+  if (!session.user || !can(session.user, permission)) {
+    return false
+  }
+
+  if (isStale(session)) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Session refresh required',
+      data: { stale: true }
+    })
+  }
+
+  return true
+}
+
+/**
  * 401 if there is no valid session.
  */
 export async function requireAuth(event: H3Event): Promise<User> {

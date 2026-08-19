@@ -50,12 +50,12 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   // Require authentication but allow all users
-  const user = await requireAuth(event)
+  await requireAuth(event)
 
   const { includeInactive } = await getValidatedQuery(event, roomListQuerySchema.parse)
 
   // Only admins can see inactive rooms
-  const isAdmin = can(user, 'room.read.inactive')
+  const isAdmin = await canNow(event, 'room.read.inactive')
   const showInactive = isAdmin && includeInactive
 
   // Non-admins get an explicit column list, never the whole row.

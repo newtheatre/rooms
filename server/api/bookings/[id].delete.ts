@@ -74,7 +74,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check authorization - admin can delete any, users can only delete their own
-  if (!can(user, 'booking.manage.any') && booking.userId !== user.id) {
+  const isAdmin = await canNow(event, 'booking.manage.any')
+
+  if (!isAdmin && booking.userId !== user.id) {
     throw createError({
       statusCode: 403,
       message: 'Not authorized to delete this booking'
@@ -95,9 +97,8 @@ export default defineEventHandler(async (event) => {
 
   // Send notification before deletion if user exists
   if (notifyUser) {
-    const byAdmin = can(user, 'booking.manage.any')
     const bookingDateTime = formatBookingDateTime(booking)
-    const suffix = byAdmin ? ' by an administrator' : ''
+    const suffix = isAdmin ? ' by an administrator' : ''
 
     const message = deletingSeries
       ? `All ${doomed.length} occurrences of your booking "${booking.eventTitle}" have been cancelled${suffix}.`
