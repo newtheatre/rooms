@@ -20,6 +20,62 @@ const bulkUpdateSchema = z.object({
   ).min(1).max(100)
 })
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Bookings'],
+    summary: 'Update many bookings',
+    description: 'Applies the admin update body to each listed booking. Same schema and same occupancy check as the single-row route.',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['updates'],
+            properties: {
+              updates: {
+                type: 'array',
+                minItems: 1,
+                maxItems: 100,
+                items: {
+                  type: 'object',
+                  required: ['id', 'data'],
+                  properties: {
+                    id: { type: 'integer' },
+                    data: { type: 'object', description: 'As PUT /api/bookings/:id, admin fields' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Bookings updated',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                updated: { type: 'integer' },
+                bookings: { type: 'array', items: { type: 'object' } }
+              }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated, or the session roles are stale' },
+      403: { description: 'Not an admin' },
+      404: { description: 'One or more bookings not found' },
+      409: { description: 'Clashes with an existing booking, or the booking is closed' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require admin session (scoped role via the estate session; staleness-checked)
   await requireAdmin(event)

@@ -12,6 +12,51 @@ const bulkDeleteSchema = z.object({
   bookingIds: z.array(z.number().int().positive()).min(1).max(100)
 })
 
+defineRouteMeta({
+  openAPI: {
+    tags: ['Bookings'],
+    summary: 'Delete many bookings',
+    description: 'Deletes each listed booking. Notifications are grouped by user.',
+    security: [{ sessionAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['bookingIds'],
+            properties: {
+              bookingIds: {
+                type: 'array',
+                minItems: 1,
+                maxItems: 100,
+                items: { type: 'integer' }
+              }
+            }
+          }
+        }
+      }
+    },
+    responses: {
+      200: {
+        description: 'Bookings deleted',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: { deleted: { type: 'integer' } }
+            }
+          }
+        }
+      },
+      400: { description: 'Validation error' },
+      401: { description: 'Not authenticated, or the session roles are stale' },
+      403: { description: 'Not an admin' },
+      404: { description: 'One or more bookings not found' }
+    }
+  }
+})
+
 export default defineEventHandler(async (event) => {
   // Require admin session (scoped role via the estate session; staleness-checked)
   await requireAdmin(event)

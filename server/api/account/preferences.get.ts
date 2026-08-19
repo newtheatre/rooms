@@ -20,7 +20,7 @@ defineRouteMeta({
               type: 'object',
               properties: {
                 notificationChannels: { type: 'array', items: { type: 'string', enum: ['EMAIL', 'PUSH'] } },
-                notificationPreferences: { type: 'array', items: { type: 'string', enum: ['BOOKING_UPDATES'] } }
+                notificationPreferences: { type: 'array', items: { type: 'string', enum: ['BOOKING_UPDATES', 'ADMIN_NEW_BOOKINGS'] } }
               }
             }
           }
