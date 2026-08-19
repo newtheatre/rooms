@@ -58,9 +58,7 @@ export default defineEventHandler(async (event) => {
   // Require authentication but allow all users
   const user = await requireAuth(event)
 
-  const query = getQuery(event)
-  const campus = query.campus as string | undefined
-  const building = query.building as string | undefined
+  const { campus, building } = await getValidatedQuery(event, venueListQuerySchema.parse)
 
   const where = and(
     campus ? eq(schema.externalVenues.campus, campus) : undefined,

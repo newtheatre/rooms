@@ -109,41 +109,14 @@ export default defineEventHandler(async (event) => {
   // Require authentication
   const user = await requireAuth(event)
 
-  const query = getQuery(event)
+  const query = await getValidatedQuery(event, availableRoomsQuerySchema.parse)
 
-  // Validate required parameters
-  if (!query.startTime || !query.endTime) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Missing required parameters',
-      message: 'startTime and endTime are required'
-    })
-  }
+  const startTime = new Date(query.startTime)
+  const endTime = new Date(query.endTime)
 
-  // Parse dates
-  const startTime = new Date(query.startTime as string)
-  const endTime = new Date(query.endTime as string)
-
-  if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Invalid date format',
-      message: 'startTime and endTime must be valid ISO 8601 datetime strings'
-    })
-  }
-
-  if (startTime >= endTime) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Invalid time range',
-      message: 'endTime must be after startTime'
-    })
-  }
-
-  // Parse options
-  const excludeBookingId = query.excludeBookingId ? Number(query.excludeBookingId) : undefined
-  const includeInactive = can(user, 'room.read.inactive') && query.includeInactive === 'true'
-  const includeUnavailable = query.includeUnavailable === 'true'
+  const excludeBookingId = query.excludeBookingId
+  const includeInactive = can(user, 'room.read.inactive') && query.includeInactive
+  const includeUnavailable = query.includeUnavailable
 
   // Get available rooms
   const { available, unavailable } = await getAvailableRooms(

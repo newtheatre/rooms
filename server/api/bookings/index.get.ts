@@ -76,11 +76,11 @@ export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
 
   // Parse query parameters
-  const query = getQuery(event)
-  const statusFilter = query.status as string | undefined
-  const startDate = query.startDate as string | undefined
-  const endDate = query.endDate as string | undefined
-  const roomId = query.roomId as string | undefined
+  const query = await getValidatedQuery(event, bookingQuerySchema.parse)
+  const statusFilter = query.status
+  const startDate = query.startDate
+  const endDate = query.endDate
+  const roomId = query.roomId
 
   const isValidStatus = statusFilter
     && (BOOKING_STATUSES as readonly string[]).includes(statusFilter)

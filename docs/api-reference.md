@@ -14,6 +14,11 @@ carries the behaviour that block cannot express.
 
 `rooms:ADMIN` is the only role this app owns. Being signed in is enough to request a booking.
 
+Every request body **and every query string** is validated with Zod, from
+`server/utils/validation.ts`. A bad filter value is a 400 naming the field, not a cast that
+silently becomes `NaN`. An update body carrying no fields at all is also a 400, rather than
+reaching the ORM and surfacing as a 500.
+
 ## Bookings
 
 | Route | Auth | Notes |
@@ -76,9 +81,9 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 | `GET /api/rooms` | session | Admins get every column plus booking counts and may pass `includeInactive=true`; everyone else gets the public fields for active rooms only. |
 | `POST /api/rooms` | admin | |
 | `GET /api/rooms/:id` | admin | |
-| `PUT /api/rooms/:id` | admin | Partial body. |
+| `PUT /api/rooms/:id` | admin | Partial body, at least one field. Omitting `isActive` leaves it alone rather than reactivating the room. |
 | `DELETE /api/rooms/:id` | admin | Deactivates by default. `?permanent=true` hard-deletes, and is refused once the room has bookings. |
-| `GET /api/rooms/available` | session | Required: `startTime`, `endTime`. `excludeBookingId` omits a booking's own rows so editing it does not conflict with itself. |
+| `GET /api/rooms/available` | session | Required: `startTime`, `endTime`, both ISO 8601 and validated. `excludeBookingId` omits a booking's own rows so editing it does not conflict with itself. |
 
 ## Venues
 
@@ -87,7 +92,7 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 | `GET /api/venues` | session | Admins also get creation dates and booking counts. Filters: `campus`, `building`. |
 | `POST /api/venues` | admin | |
 | `GET /api/venues/:id` | admin | |
-| `PUT /api/venues/:id` | admin | Partial body. |
+| `PUT /api/venues/:id` | admin | Partial body, at least one field. |
 | `DELETE /api/venues/:id` | admin | Permanent, and refused while any booking references the venue — unlike rooms there is no deactivated state. |
 
 ## Users

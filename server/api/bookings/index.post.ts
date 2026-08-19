@@ -72,14 +72,14 @@ export default defineEventHandler(async (event) => {
 
   if (isAdmin && rawBody.userId) {
     // Admin creating booking for another user
-    validatedData = adminCreateBookingSchema.parse(rawBody)
+    validatedData = parseOr400(adminCreateBookingSchema, rawBody)
     bookingUserId = validatedData.userId
     status = validatedData.status || (validatedData.roomId ? 'CONFIRMED' : validatedData.externalVenueId ? 'AWAITING_EXTERNAL' : 'PENDING')
     roomId = validatedData.roomId
     externalVenueId = validatedData.externalVenueId
   } else {
     // Regular user or admin creating for themselves
-    validatedData = createBookingSchema.parse(rawBody)
+    validatedData = parseOr400(createBookingSchema, rawBody)
   }
 
   const startTime = new Date(validatedData.startTime)

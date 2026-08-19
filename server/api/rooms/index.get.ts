@@ -52,8 +52,7 @@ export default defineEventHandler(async (event) => {
   // Require authentication but allow all users
   const user = await requireAuth(event)
 
-  const query = getQuery(event)
-  const includeInactive = query.includeInactive === 'true'
+  const { includeInactive } = await getValidatedQuery(event, roomListQuerySchema.parse)
 
   // Only admins can see inactive rooms
   const isAdmin = can(user, 'room.read.inactive')

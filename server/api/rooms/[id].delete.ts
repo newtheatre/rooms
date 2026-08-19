@@ -60,8 +60,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const query = getQuery(event)
-  const permanent = query.permanent === 'true'
+  const { permanent } = await getValidatedQuery(event, roomDeleteQuerySchema.parse)
 
   // Check if room exists
   const room = firstRow(await db

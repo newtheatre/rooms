@@ -205,7 +205,7 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
       payload.recurringPattern = {
         frequency: event.data.recurringFrequency,
         interval: 1,
-        daysOfWeek: event.data.recurringDaysOfWeek || [],
+        daysOfWeek: event.data.recurringFrequency === 'WEEKLY' ? event.data.recurringDaysOfWeek : undefined,
         maxOccurrences: event.data.recurringMaxOccurrences
       }
     }

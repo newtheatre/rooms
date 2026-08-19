@@ -2,7 +2,6 @@
  * PUT /api/venues/:id — update an external venue. Admin only. Partial body.
  */
 
-import { createVenueSchema } from '../../utils/validation'
 import { db, schema } from '@nuxthub/db'
 import { count, eq } from 'drizzle-orm'
 
@@ -78,9 +77,7 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event)
 
-  // Validate using partial schema (all fields optional for update)
-  const updateSchema = createVenueSchema.partial()
-  const validation = updateSchema.safeParse(body)
+  const validation = updateVenueSchema.safeParse(body)
   if (!validation.success) {
     throw createError({
       statusCode: 400,

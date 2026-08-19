@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const body = await readValidatedBody(event, createRoomSchema.partial().parse)
+  const body = await readValidatedBody(event, updateRoomSchema.parse)
 
   const room = firstRow(await db
     .update(schema.rooms)
