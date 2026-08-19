@@ -15,6 +15,12 @@ export type NotificationChannel = 'EMAIL' | 'PUSH'
 /** Preferences do not gate sendCriticalNotification, which always emails. */
 export type NotificationPreference = 'BOOKING_UPDATES' | 'ADMIN_NEW_BOOKINGS'
 
+/** A booking carrying whichever space it was given, as bookingQueries returns. */
+export type BookingWithSpace = Booking & {
+  room?: { name: string } | null
+  externalVenue?: { building: string, roomName: string } | null
+}
+
 export interface BookingNotification {
   type: 'BOOKING_UPDATES'
   booking: Booking
@@ -52,6 +58,30 @@ export function formatBookingDateTime(booking: Booking): string {
   return `${datePart} at ${startTime} - ${endTime}`
 }
 
+/** Where a booking now is, for a message that names it. */
+function spaceOf(booking: BookingWithSpace): string {
+  if (booking.room) return ` in ${booking.room.name}`
+  if (booking.externalVenue) return ` at ${booking.externalVenue.building} - ${booking.externalVenue.roomName}`
+  return ''
+}
+
+/**
+ * Keyed on the status, so adding one to the enum fails to compile here rather
+ * than emailing a sentence nobody wrote.
+ */
+const STATUS_MESSAGES: Record<Booking['status'], (b: BookingWithSpace, when: string) => string> = {
+  PENDING: (b, when) => `Your booking "${b.eventTitle}" (${when}) is pending review.`,
+  CONFIRMED: (b, when) => `Your booking "${b.eventTitle}" (${when}) has been confirmed${spaceOf(b)}.`,
+  AWAITING_EXTERNAL: (b, when) => `Your booking "${b.eventTitle}" (${when}) has been assigned to an external venue and is awaiting confirmation.`,
+  REJECTED: (b, when) => `Your booking "${b.eventTitle}" (${when}) has been rejected${b.rejectionReason ? `: ${b.rejectionReason}` : '.'}`,
+  CANCELLED: (b, when) => `Your booking "${b.eventTitle}" (${when}) has been cancelled.`
+}
+
+/** The one wording for a status change, wherever the change was made. */
+export function bookingStatusMessage(booking: BookingWithSpace): string {
+  return STATUS_MESSAGES[booking.status](booking, formatBookingDateTime(booking))
+}
+
 /** Stored as a JSON string; unparseable values fall back to email only. */
 export function getNotificationChannels(user: User): NotificationChannel[] {
   try {
@@ -75,6 +105,31 @@ export function shouldNotify(user: User, notificationType: NotificationPreferenc
   return preferences.includes(notificationType)
 }
 
+/**
+ * Reports every failure rather than only the first. Promise.all would hide the
+ * fate of the other recipients behind whichever rejected soonest.
+ */
+async function settleAll(work: Promise<void>[], describe: string): Promise<void> {
+  const results = await Promise.allSettled(work)
+  const failures = results.filter(r => r.status === 'rejected')
+
+  if (!failures.length) return
+
+  for (const failure of failures) {
+    console.error(`[notify] ${describe}:`, failure.reason)
+  }
+
+  throw new Error(`${failures.length} of ${results.length} ${describe} failed`)
+}
+
+/** Resend returns a plain object, so interpolating it yields [object Object]. */
+function resendError(error: unknown): Error {
+  const detail = error as { name?: string, message?: string, statusCode?: number }
+  const parts = [detail?.name, detail?.statusCode, detail?.message].filter(Boolean)
+
+  return new Error(`Resend rejected the send: ${parts.join(' ') || JSON.stringify(error)}`)
+}
+
 /** Sends one email via Resend. No-op in development. */
 export async function sendEmail(user: User, subject: string, content: string): Promise<void> {
   console.log(`[EMAIL] To: ${user.email}, Subject: ${subject}`)
@@ -93,7 +148,7 @@ export async function sendEmail(user: User, subject: string, content: string): P
   })
 
   if (error) {
-    throw new Error(`Failed to send email: ${error}`)
+    throw resendError(error)
   }
 }
 
@@ -122,7 +177,7 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
   })
 
   if (error) {
-    throw new Error(`Failed to send email: ${error}`)
+    throw resendError(error)
   }
 }
 
@@ -174,7 +229,7 @@ export async function notifyBookingUpdate(
     notifications.push(sendPushNotification(user.id, title, message, { bookingId: booking.id }))
   }
 
-  await Promise.all(notifications)
+  await settleAll(notifications, `notifications for ${user.email}`)
 }
 
 /** One notification per user covering all their updates, not one per booking. */
@@ -236,7 +291,7 @@ export async function notifyBulkBookingUpdates(
     }
   }
 
-  await Promise.all(notifications)
+  await settleAll(notifications, `bulk notifications for ${updatesByUser.size} user(s)`)
 }
 
 /**

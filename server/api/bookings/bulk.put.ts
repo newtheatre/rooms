@@ -4,7 +4,7 @@
  */
 import { db, schema } from '@nuxthub/db'
 import { inArray } from 'drizzle-orm'
-import { notifyBulkBookingUpdates, formatBookingDateTime } from '~~/server/utils/notifications'
+import { notifyBulkBookingUpdates, bookingStatusMessage } from '~~/server/utils/notifications'
 import { z } from 'zod'
 import { applyBookingChange } from '~~/server/utils/bookingWrites'
 import { updateBookingSchema } from '~~/server/utils/validation'
@@ -84,15 +84,7 @@ export default defineEventHandler(async (event) => {
 
     // Queue notification if status changed
     if (statusChanged && updatedBooking.userId) {
-      const bookingDateTime = formatBookingDateTime(updatedBooking)
-      const statusMessages: Record<string, string> = {
-        CONFIRMED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been confirmed${updatedBooking.room ? ` in ${updatedBooking.room.name}` : updatedBooking.externalVenue ? ` at ${updatedBooking.externalVenue.building} - ${updatedBooking.externalVenue.roomName}` : ''}.`,
-        AWAITING_EXTERNAL: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been assigned to an external venue and is awaiting confirmation.`,
-        REJECTED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been rejected${updatedBooking.rejectionReason ? `: ${updatedBooking.rejectionReason}` : '.'}`,
-        CANCELLED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been cancelled.`
-      }
-
-      const message = statusMessages[updatedBooking.status] || `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) status has been updated to ${updatedBooking.status}.`
+      const message = bookingStatusMessage(updatedBooking)
 
       pending.push({
         userId: updatedBooking.userId,

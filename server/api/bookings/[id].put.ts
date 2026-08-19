@@ -4,7 +4,7 @@
  */
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
-import { notifyBookingUpdate, notifyAdmins, formatBookingDateTime } from '~~/server/utils/notifications'
+import { notifyBookingUpdate, notifyAdmins, bookingStatusMessage, formatBookingDateTime } from '~~/server/utils/notifications'
 import { applyBookingChange } from '~~/server/utils/bookingWrites'
 
 defineRouteMeta({
@@ -128,15 +128,7 @@ export default defineEventHandler(async (event) => {
 
     // Send notification if status changed
     if (statusChanged && updatedBooking.userId) {
-      const bookingDateTime = formatBookingDateTime(updatedBooking)
-      const statusMessages: Record<string, string> = {
-        CONFIRMED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been confirmed in ${updatedBooking.room ? `${updatedBooking.room.name}` : `${updatedBooking.externalVenue?.building} - ${updatedBooking.externalVenue?.roomName}`}.`,
-        AWAITING_EXTERNAL: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been assigned to an external venue and is awaiting confirmation.`,
-        REJECTED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been rejected${updatedBooking.rejectionReason ? `: ${updatedBooking.rejectionReason}` : '.'}`,
-        CANCELLED: `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) has been cancelled.`
-      }
-
-      const message = statusMessages[updatedBooking.status] || `Your booking "${updatedBooking.eventTitle}" (${bookingDateTime}) status has been updated to ${updatedBooking.status}.`
+      const message = bookingStatusMessage(updatedBooking)
 
       // The response deliberately omits the notification columns.
       const fullUser = firstRow(await db
