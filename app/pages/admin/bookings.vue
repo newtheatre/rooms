@@ -78,17 +78,25 @@ const pagination = ref({
   pageSize: 10
 })
 
-// Fetch data
-const { data: bookings, status, refresh: refreshBookings } = await useFetch<Booking[]>('/api/bookings', {
-  lazy: true
-})
+// Filtered and paged in the browser, so it still needs every row
+// (README §Known gaps).
+const { data: bookings, status, refresh: refreshBookings } = await useAsyncData(
+  'admin-bookings',
+  () => fetchAllPages<Booking>('/api/bookings'),
+  { lazy: true }
+)
 
-const { data: rooms } = await useFetch<Room[]>('/api/rooms', {
+const { data: rooms } = await useFetch('/api/rooms', {
   key: 'active-rooms',
-  query: { includeInactive: 'false' }
+  transform: (r: { items: Room[] }) => r.items,
+  query: { includeInactive: 'false', limit: '200' }
 })
 
-const { data: venues } = await useFetch<ExternalVenue[]>('/api/venues', { key: 'venues' })
+const { data: venues } = await useFetch('/api/venues', {
+  key: 'venues',
+  transform: (r: { items: ExternalVenue[] }) => r.items,
+  query: { limit: '200' }
+})
 
 // Modals - modals handle their own state and API calls
 const bookingToEdit = ref<Booking | null>(null)
@@ -209,35 +217,31 @@ async function assignRoom(booking: Booking, roomId: number, roomName?: string) {
   await assignRoomDirect(booking, roomId)
 }
 
+// The series is resolved server-side: deriving it from the loaded rows would
+// silently shrink to whatever the current page holds.
+async function applyToBooking(
+  booking: Booking,
+  patch: Record<string, unknown>,
+  relatedBookings?: Booking[]
+) {
+  const scope = relatedBookings?.length ? 'series' : 'occurrence'
+
+  await $fetch(`/api/bookings/${booking.id}`, {
+    method: 'PUT',
+    query: { scope },
+    body: patch
+  })
+}
+
 // Direct room assignment (used internally and by modal)
 async function assignRoomDirect(booking: Booking, roomId: number, relatedBookings?: Booking[]) {
   try {
     const bookingsToUpdate = relatedBookings ? [booking, ...relatedBookings] : [booking]
 
-    // Use bulk endpoint if updating multiple bookings
-    if (bookingsToUpdate.length > 1) {
-      await $fetch('/api/bookings/bulk', {
-        method: 'PUT',
-        body: {
-          updates: bookingsToUpdate.map(b => ({
-            id: b.id,
-            data: {
-              roomId,
-              status: 'CONFIRMED'
-            }
-          }))
-        }
-      })
-    } else {
-      // Single booking - use regular endpoint
-      await $fetch(`/api/bookings/${booking.id}`, {
-        method: 'PUT',
-        body: {
-          roomId,
-          status: 'CONFIRMED'
-        }
-      })
-    }
+    await applyToBooking(booking, {
+      roomId,
+      status: 'CONFIRMED'
+    }, relatedBookings)
 
     const roomName = rooms.value?.find(r => r.id === roomId)?.name || 'room'
     toast.add({
@@ -283,28 +287,9 @@ async function initiateExternalDirect(booking: Booking, relatedBookings?: Bookin
   try {
     const bookingsToUpdate = relatedBookings ? [booking, ...relatedBookings] : [booking]
 
-    // Use bulk endpoint if updating multiple bookings
-    if (bookingsToUpdate.length > 1) {
-      await $fetch('/api/bookings/bulk', {
-        method: 'PUT',
-        body: {
-          updates: bookingsToUpdate.map(b => ({
-            id: b.id,
-            data: {
-              status: 'AWAITING_EXTERNAL'
-            }
-          }))
-        }
-      })
-    } else {
-      // Single booking - use regular endpoint
-      await $fetch(`/api/bookings/${booking.id}`, {
-        method: 'PUT',
-        body: {
-          status: 'AWAITING_EXTERNAL'
-        }
-      })
-    }
+    await applyToBooking(booking, {
+      status: 'AWAITING_EXTERNAL'
+    }, relatedBookings)
 
     toast.add({
       title: 'External booking initiated',
@@ -352,30 +337,10 @@ async function confirmAndAssignVenueDirect(booking: Booking, venueId: number, re
   try {
     const bookingsToUpdate = relatedBookings ? [booking, ...relatedBookings] : [booking]
 
-    // Use bulk endpoint if updating multiple bookings
-    if (bookingsToUpdate.length > 1) {
-      await $fetch('/api/bookings/bulk', {
-        method: 'PUT',
-        body: {
-          updates: bookingsToUpdate.map(b => ({
-            id: b.id,
-            data: {
-              externalVenueId: venueId,
-              status: 'CONFIRMED'
-            }
-          }))
-        }
-      })
-    } else {
-      // Single booking - use regular endpoint
-      await $fetch(`/api/bookings/${booking.id}`, {
-        method: 'PUT',
-        body: {
-          externalVenueId: venueId,
-          status: 'CONFIRMED'
-        }
-      })
-    }
+    await applyToBooking(booking, {
+      externalVenueId: venueId,
+      status: 'CONFIRMED'
+    }, relatedBookings)
 
     const venue = venues.value?.find(v => v.id === venueId)
     const venueName = venue ? `${venue.building} - ${venue.roomName}` : 'venue'
@@ -404,30 +369,10 @@ async function rejectDirect(booking: Booking, rejectionReason: string, relatedBo
   try {
     const bookingsToUpdate = relatedBookings ? [booking, ...relatedBookings] : [booking]
 
-    // Use bulk endpoint if updating multiple bookings
-    if (bookingsToUpdate.length > 1) {
-      await $fetch('/api/bookings/bulk', {
-        method: 'PUT',
-        body: {
-          updates: bookingsToUpdate.map(b => ({
-            id: b.id,
-            data: {
-              status: 'REJECTED',
-              rejectionReason
-            }
-          }))
-        }
-      })
-    } else {
-      // Single booking - use regular endpoint
-      await $fetch(`/api/bookings/${booking.id}`, {
-        method: 'PUT',
-        body: {
-          status: 'REJECTED',
-          rejectionReason
-        }
-      })
-    }
+    await applyToBooking(booking, {
+      status: 'REJECTED',
+      rejectionReason
+    }, relatedBookings)
 
     toast.add({
       title: 'Booking rejected',

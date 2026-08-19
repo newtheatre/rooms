@@ -4,7 +4,6 @@
  */
 import { schema } from '@nuxthub/db'
 import { and, desc, eq, gte, lte } from 'drizzle-orm'
-import { BOOKING_STATUSES, type BookingStatus } from '~~/server/db/schema/booking'
 
 defineRouteMeta({
   openAPI: {
@@ -82,19 +81,17 @@ export default defineEventHandler(async (event) => {
   const endDate = query.endDate
   const roomId = query.roomId
 
-  const isValidStatus = statusFilter
-    && (BOOKING_STATUSES as readonly string[]).includes(statusFilter)
-
-  const roomIdNum = roomId ? Number.parseInt(roomId) : Number.NaN
-
   const where = and(
     // Non-admins only ever see their own bookings.
     await canNow(event, 'booking.read.any') ? undefined : eq(schema.bookings.userId, user.id),
-    isValidStatus ? eq(schema.bookings.status, statusFilter as BookingStatus) : undefined,
+    statusFilter ? eq(schema.bookings.status, statusFilter) : undefined,
     startDate ? gte(schema.bookings.startTime, new Date(startDate)) : undefined,
     endDate ? lte(schema.bookings.endTime, new Date(endDate)) : undefined,
-    Number.isNaN(roomIdNum) ? undefined : eq(schema.bookings.roomId, roomIdNum)
+    roomId ? eq(schema.bookings.roomId, roomId) : undefined
   )
 
-  return await findBookings(where, [desc(schema.bookings.startTime)])
+  return await findBookingsPage(where, [desc(schema.bookings.startTime)], {
+    limit: query.limit,
+    offset: query.offset
+  })
 })

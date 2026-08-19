@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
 
   // Parse query parameters. Roles now live in the central auth service —
   // this mirror table has no role column to filter by.
-  const { search: searchFilter } = await getValidatedQuery(event, userListQuerySchema.parse)
+  const { search: searchFilter, limit, offset } = await getValidatedQuery(event, userListQuerySchema.parse)
 
   const where = searchFilter
     ? or(
@@ -61,17 +61,24 @@ export default defineEventHandler(async (event) => {
     : undefined
 
   // Column allow-listed: the mirror also holds notification settings.
-  return await db
-    .select({
-      id: schema.users.id,
-      email: schema.users.email,
-      name: schema.users.name,
-      createdAt: schema.users.createdAt,
-      bookingCount: count(schema.bookings.id)
-    })
-    .from(schema.users)
-    .leftJoin(schema.bookings, eq(schema.bookings.userId, schema.users.id))
-    .where(where)
-    .groupBy(schema.users.id)
-    .orderBy(desc(schema.users.createdAt))
+  const [items, total] = await Promise.all([
+    db
+      .select({
+        id: schema.users.id,
+        email: schema.users.email,
+        name: schema.users.name,
+        createdAt: schema.users.createdAt,
+        bookingCount: count(schema.bookings.id)
+      })
+      .from(schema.users)
+      .leftJoin(schema.bookings, eq(schema.bookings.userId, schema.users.id))
+      .where(where)
+      .groupBy(schema.users.id)
+      .orderBy(desc(schema.users.createdAt))
+      .limit(limit)
+      .offset(offset),
+    countRows(schema.users, where)
+  ])
+
+  return { items, total, limit, offset }
 })

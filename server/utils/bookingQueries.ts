@@ -43,7 +43,11 @@ function flatten(row: Row) {
 export type BookingWithRelations = ReturnType<typeof flatten>
 
 /** Bookings matching `where`, newest first unless `order` says otherwise. */
-export async function findBookings(where?: SQL, order?: SQL[]): Promise<BookingWithRelations[]> {
+export async function findBookings(
+  where?: SQL,
+  order?: SQL[],
+  page?: { limit: number, offset: number }
+): Promise<BookingWithRelations[]> {
   const query = db
     .select(selection)
     .from(schema.bookings)
@@ -52,9 +56,24 @@ export async function findBookings(where?: SQL, order?: SQL[]): Promise<BookingW
     .leftJoin(schema.externalVenues, eq(schema.bookings.externalVenueId, schema.externalVenues.id))
     .where(where)
 
-  const rows = order?.length ? await query.orderBy(...order) : await query
+  const ordered = order?.length ? query.orderBy(...order) : query
+  const rows = page ? await ordered.limit(page.limit).offset(page.offset) : await ordered
 
   return (rows as Row[]).map(flatten)
+}
+
+/** Rows for the requested page plus the total the filter matches. */
+export async function findBookingsPage(
+  where: SQL | undefined,
+  order: SQL[],
+  page: { limit: number, offset: number }
+): Promise<Paged<BookingWithRelations>> {
+  const [items, total] = await Promise.all([
+    findBookings(where, order, page),
+    countRows(schema.bookings, where)
+  ])
+
+  return { items, total, limit: page.limit, offset: page.offset }
 }
 
 /** One booking with its relations, or undefined. */

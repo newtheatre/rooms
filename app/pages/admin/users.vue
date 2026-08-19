@@ -18,7 +18,8 @@ definePageMeta({
 const config = useRuntimeConfig()
 const search = ref('')
 
-const { data: users, status, refresh } = await useFetch<UserRow[]>('/api/users', {
+const { data: users, status, refresh } = await useFetch('/api/users', {
+  transform: (r: { items: UserRow[] }) => r.items,
   query: computed(() => (search.value ? { search: search.value } : {}))
 })
 

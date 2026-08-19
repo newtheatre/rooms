@@ -43,7 +43,8 @@ CI gates on lint and build. There is no test suite. `typecheck` reports exactly 
 9. **Erasure is anonymisation.** The GDPR hooks under `server/api/_hooks/auth/` are called by stage-door; they scrub this app's share and are idempotent because stage-door retries them.
 10. **Each statement binds a fixed number of parameters.** D1 caps at 100 per statement, and this fails in production long after it passes in dev — scope by predicate, never by an id list built from a result set. Where a list is unavoidable, `chunkedByIds` in `server/utils/db.ts` is the one implementation.
 11. **Booking responses carry an allow-listed user**, never the whole mirror row, which also holds notification settings. `server/utils/bookingQueries.ts` is the single shape ([ADR-0001](docs/decisions/0001-drizzle-with-a-prisma-baseline.md)).
-12. **Permission checks go through `requireAdmin` or `canNow`, never a bare `can`.** Both apply the 15-minute staleness rule, so a role revoked centrally stops working everywhere rather than only on the routes that remembered. `can` on its own answers from the session's roles however old they are.
+12. **List endpoints page in SQL and return `{ items, total, limit, offset }`**, never a bare array. `countRows` and `findBookingsPage` in `server/utils/` are the shared shape.
+13. **Permission checks go through `requireAdmin` or `canNow`, never a bare `can`.** Both apply the 15-minute staleness rule, so a role revoked centrally stops working everywhere rather than only on the routes that remembered. `can` on its own answers from the session's roles however old they are.
 
 ## Repo conventions
 

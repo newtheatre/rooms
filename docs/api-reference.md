@@ -19,6 +19,21 @@ carries the behaviour that block cannot express.
 
 `rooms:ADMIN` is the only role this app owns. Being signed in is enough to request a booking.
 
+## Pagination
+
+`GET /api/bookings`, `/api/rooms`, `/api/venues` and `/api/users` page in SQL and return an
+envelope, never a bare array:
+
+```json
+{ "items": [ ... ], "total": 412, "limit": 50, "offset": 0 }
+```
+
+`limit` defaults to 50 and is capped at 200; `offset` defaults to 0. `total` is the count the
+filter matches, not the page length.
+
+`GET /api/bookings/stats` returns `{ total, pending, confirmed, upcoming }` for the signed-in
+user, so a caller that only wants counts does not fetch rows to count them.
+
 Every request body **and every query string** is validated with Zod, from
 `server/utils/validation.ts`. A bad filter value is a 400 naming the field, not a cast that
 silently becomes `NaN`. An update body carrying no fields at all is also a 400, rather than
@@ -30,8 +45,9 @@ reaching the ORM and surfacing as a 500.
 | --- | --- | --- |
 | `GET /api/bookings` | session | Admins see all; a STANDARD user sees only their own, scoped server-side rather than by a query parameter. Filters: `status`, `startDate`, `endDate`, `roomId`. |
 | `POST /api/bookings` | session | Create a request. See below. |
+| `GET /api/bookings/stats` | session | Counts for the caller's own bookings. |
 | `GET /api/bookings/:id` | owner or admin | One booking with its relations. |
-| `PUT /api/bookings/:id` | owner or admin | Field set depends on role. See below. |
+| `PUT /api/bookings/:id` | owner or admin | Field set depends on role. See below. `?scope=series` applies an admin's change to every unfinished occurrence. |
 | `DELETE /api/bookings/:id` | owner or admin | Deletes and notifies the owner. `?scope=series` removes the whole recurring series; the default `occurrence` removes one and promotes the next to head it ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). |
 | `PUT /api/bookings/bulk` | admin | `{ updates: [{ id, data }] }`, where `data` is the admin shape below. Same schema and same occupancy check as the single-row route. |
 | `DELETE /api/bookings/bulk` | admin | `{ bookingIds: number[] }`. |

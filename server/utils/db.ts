@@ -1,3 +1,7 @@
+import { db } from '@nuxthub/db'
+import { count, type SQL } from 'drizzle-orm'
+import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
+
 /**
  * Row helpers for Drizzle results. `returning()` and `select()` are typed as
  * arrays, but a write that must affect one row should say so at the call site.
@@ -15,6 +19,20 @@ export function requireRow<T>(rows: T[]): T {
 /** The row, or undefined. Callers decide whether that is a 404. */
 export function firstRow<T>(rows: T[]): T | undefined {
   return rows[0]
+}
+
+/** The envelope every list endpoint returns, never a bare array. */
+export interface Paged<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/** Total rows the filter matches, for the pagination envelope. */
+export async function countRows(table: SQLiteTable, where?: SQL): Promise<number> {
+  const [row] = await db.select({ value: count() }).from(table).where(where)
+  return row?.value ?? 0
 }
 
 /**

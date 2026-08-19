@@ -31,9 +31,14 @@ const isSubmitting = ref(false)
 
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
   key: 'active-rooms',
-  query: { includeInactive: 'false' }
+  transform: (r: { items: Room[] }) => r.items,
+  query: { includeInactive: 'false', limit: '200' }
 })
-const { data: venues, status: venuesStatus, refresh: refreshVenues } = useLazyFetch('/api/venues', { key: 'venues' })
+const { data: venues, status: venuesStatus, refresh: refreshVenues } = useLazyFetch('/api/venues', {
+  key: 'venues',
+  transform: (r: { items: Venue[] }) => r.items,
+  query: { limit: '200' }
+})
 
 watch(open, (isOpen) => {
   if (isOpen && props.booking) {

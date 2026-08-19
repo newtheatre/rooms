@@ -2,6 +2,33 @@ import type { CalendarDate } from '@internationalized/date'
 
 export const LONDON = 'Europe/London'
 
+interface Paged<T> {
+  items: T[]
+  total: number
+}
+
+/**
+ * Every page of a paged endpoint. For the two tables that still filter and
+ * sort in the browser, until they move onto server-side paging.
+ */
+export async function fetchAllPages<T>(
+  url: string,
+  query: Record<string, string> = {},
+  pageSize = 200
+): Promise<T[]> {
+  const first = await $fetch<Paged<T>>(url, { query: { ...query, limit: String(pageSize), offset: '0' } })
+  const items = [...first.items]
+
+  for (let offset = pageSize; offset < first.total; offset += pageSize) {
+    const next = await $fetch<Paged<T>>(url, {
+      query: { ...query, limit: String(pageSize), offset: String(offset) }
+    })
+    items.push(...next.items)
+  }
+
+  return items
+}
+
 // Built once: constructing a formatter per render is the expensive part.
 const dateTimeFormat = new Intl.DateTimeFormat('en-GB', {
   timeZone: LONDON, dateStyle: 'medium', timeStyle: 'short'
