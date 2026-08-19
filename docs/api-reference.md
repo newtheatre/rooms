@@ -178,5 +178,13 @@ Permissions are lowercase and dotted where roles are uppercase, so no string can
 
 | Route | Auth | Notes |
 | --- | --- | --- |
-| `GET /api/health` | public | `{ ok: true }` |
+| `GET /api/health` | public | `{ ok: true }`, or **503** with `{ ok: false, pendingMigrations }`. See below. |
 | `GET /dev-login` | dev only | Seals a fake session. `?admin=1` grants `rooms:ADMIN`. Guarded by `import.meta.dev`, so it does not exist in a production build. The single sanctioned exception to "this app never writes the session". |
+
+### `GET /api/health`
+
+Not a plain liveness probe. It compares the migration journal against production's
+`_hub_migrations` ledger and returns **503** naming the files that have not been applied, because
+a Worker deployed ahead of its schema is the failure stage-door ADR-0021 exists for.
+
+An uptime monitor pointed at this will alarm on a missed migration, which is the intent.
