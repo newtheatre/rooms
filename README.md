@@ -83,6 +83,16 @@ bun run db:migrate  # apply migrations to the local database
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint and build on every push and PR.
 Cloudflare Workers Builds deploys `main`; deployment is not CI's job.
 
+**Migrations are.** `.github/workflows/migrate.yml` applies pending migrations on any push to `main`
+that touches `server/db/migrations/**`. Workers Builds only builds and deploys, and nothing applied
+migrations until this workflow existed — that gap took the estate down for an hour on 2026-08-19
+(stage-door ADR-0021). Every run records a D1 Time Travel restore point before applying and gates on
+the `_hub_migrations` ledger afterwards. It needs a `CLOUDFLARE_API_TOKEN` repository secret with
+D1:Edit, and fails loudly without one.
+
+`./.github/scripts/pending-migrations.sh` lists what is pending without applying it, and
+`GET /api/health` returns 503 naming the pending files if a deploy lands ahead of its migration.
+
 ## Known gaps
 
 Recorded here rather than left to be discovered:
