@@ -19,6 +19,7 @@ definePageMeta({
 })
 
 const toast = useToast()
+const showError = useErrorToast()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const table = useTemplateRef<any>('table')
 
@@ -69,13 +70,7 @@ async function deleteSingleRoom() {
     roomToDelete.value = null
     await refresh()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to delete room',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to delete room')
   }
 }
 
@@ -94,13 +89,7 @@ async function toggleRoomStatus(room: Room) {
     })
     await refresh()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to update room status',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to update room status')
   }
 }
 
@@ -135,13 +124,7 @@ async function massActivate() {
     rowSelection.value = {}
     await refresh()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to activate rooms',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to activate rooms')
   }
 }
 
@@ -176,13 +159,7 @@ async function massDeactivate() {
     rowSelection.value = {}
     await refresh()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to deactivate rooms',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to deactivate rooms')
   }
 }
 

@@ -96,3 +96,23 @@ export function combineDateAndTime(date: CalendarDate, time: string): string {
 
   return new Date(instant).toISOString()
 }
+
+export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'AWAITING_EXTERNAL' | 'REJECTED' | 'CANCELLED'
+
+/** One place a status becomes a badge, so a new one cannot render three ways. */
+const STATUS_BADGES = {
+  PENDING: { color: 'warning', label: 'Pending', icon: 'i-lucide-clock' },
+  CONFIRMED: { color: 'success', label: 'Confirmed', icon: 'i-lucide-check-circle' },
+  AWAITING_EXTERNAL: { color: 'info', label: 'Awaiting external', icon: 'i-lucide-hourglass' },
+  REJECTED: { color: 'error', label: 'Rejected', icon: 'i-lucide-x-circle' },
+  CANCELLED: { color: 'neutral', label: 'Cancelled', icon: 'i-lucide-ban' }
+} as const satisfies Record<BookingStatus, { color: string, label: string, icon: string }>
+
+export function statusBadge(status: string) {
+  return STATUS_BADGES[status as BookingStatus]
+    ?? { color: 'neutral', label: status, icon: 'i-lucide-circle' } as const
+}
+
+/** Every status, for a filter control. */
+export const STATUS_OPTIONS = (Object.keys(STATUS_BADGES) as BookingStatus[])
+  .map(value => ({ value, label: STATUS_BADGES[value].label }))

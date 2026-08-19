@@ -26,6 +26,7 @@ const state = reactive<Partial<Schema>>({
 })
 
 const toast = useToast()
+const showError = useErrorToast()
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   isSubmitting.value = true
@@ -50,13 +51,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
     emit('refresh')
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to create room',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to create room')
   } finally {
     isSubmitting.value = false
   }

@@ -32,6 +32,7 @@ interface Booking {
 }
 
 const toast = useToast()
+const showError = useErrorToast()
 const { user } = useUserSession()
 
 // State
@@ -133,7 +134,7 @@ const columns = [
     header: 'Status',
     cell: ({ row }: { row: { original: Booking } }) => {
       const booking = row.original
-      const badge = getStatusBadge(booking.status)
+      const badge = statusBadge(booking.status)
       const children = [
         h(resolveComponent('UBadge'), {
           color: badge.color,
@@ -185,23 +186,6 @@ const columns = [
 ]
 
 // Status badge config
-function getStatusBadge(status: string) {
-  switch (status) {
-    case 'CONFIRMED':
-      return { color: 'success' as const, label: 'Confirmed', icon: 'i-lucide-check-circle' }
-    case 'PENDING':
-      return { color: 'warning' as const, label: 'Pending', icon: 'i-lucide-clock' }
-    case 'AWAITING_EXTERNAL':
-      return { color: 'info' as const, label: 'Awaiting External', icon: 'i-lucide-hourglass' }
-    case 'REJECTED':
-      return { color: 'error' as const, label: 'Rejected', icon: 'i-lucide-x-circle' }
-    case 'CANCELLED':
-      return { color: 'neutral' as const, label: 'Cancelled', icon: 'i-lucide-ban' }
-    default:
-      return { color: 'neutral' as const, label: status, icon: 'i-lucide-circle' }
-  }
-}
-
 // Format venue
 function formatVenue(booking: Booking) {
   if (booking.room) {
@@ -244,13 +228,7 @@ async function cancelBooking() {
     bookingToCancel.value = null
     await refresh()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to cancel booking',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to cancel booking')
   } finally {
     isCancelling.value = false
   }

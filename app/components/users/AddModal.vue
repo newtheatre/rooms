@@ -19,6 +19,7 @@ const open = ref(false)
 const submitting = ref(false)
 const state = reactive<Partial<Schema>>({ name: '', email: '' })
 const toast = useToast()
+const showError = useErrorToast()
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   submitting.value = true
@@ -39,8 +40,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     state.email = ''
     emit('refresh')
   } catch (error) {
-    const err = error as { data?: { message?: string } }
-    toast.add({ title: err.data?.message || 'Could not create user', color: 'error' })
+    showError(error, 'Could not create user')
   } finally {
     submitting.value = false
   }
