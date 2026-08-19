@@ -34,11 +34,11 @@ defineRouteMeta({
               status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'], description: 'Admin sets any status; an owner may only send CANCELLED' },
               rejectionReason: { type: 'string', description: 'Reason for rejection (admin only)' },
               allowConflicts: { type: 'boolean', description: 'Assign despite a clash (admin only)' },
-              eventTitle: { type: 'string', description: 'Event title (user)' },
-              numberOfAttendees: { type: 'integer', description: 'Number of attendees (user)' },
-              startTime: { type: 'string', format: 'date-time', description: 'Start time (user)' },
-              endTime: { type: 'string', format: 'date-time', description: 'End time (user)' },
-              notes: { type: 'string', description: 'Notes (user)' }
+              eventTitle: { type: 'string', description: 'Event title (admin or owner)' },
+              numberOfAttendees: { type: 'integer', description: 'Number of attendees (admin or owner)' },
+              startTime: { type: 'string', format: 'date-time', description: 'Start time (admin or owner)' },
+              endTime: { type: 'string', format: 'date-time', description: 'End time (admin or owner)' },
+              notes: { type: 'string', description: 'Notes (admin or owner)' }
             }
           }
         }
@@ -119,7 +119,11 @@ export default defineEventHandler(async (event) => {
     // Track if status changed for notification
     const statusChanged = data.status && data.status !== existingBooking.status
 
-    await applyBookingChange(existingBooking, data, { allowConflicts: data.allowConflicts })
+    await applyBookingChange(existingBooking, {
+      ...data,
+      ...(data.startTime && { startTime: new Date(data.startTime) }),
+      ...(data.endTime && { endTime: new Date(data.endTime) })
+    }, { allowConflicts: data.allowConflicts })
 
     const updatedBooking = await findBooking(id)
     if (!updatedBooking) {
