@@ -31,6 +31,7 @@ export default defineEventHandler(async (event) => {
       endTime: schema.bookings.endTime,
       status: schema.bookings.status,
       notes: schema.bookings.notes,
+      rejectionReason: schema.bookings.rejectionReason,
       numberOfAttendees: schema.bookings.numberOfAttendees,
       createdAt: schema.bookings.createdAt,
       room: { name: schema.rooms.name },

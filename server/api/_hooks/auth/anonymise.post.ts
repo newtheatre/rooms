@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
       })
       .where(eq(schema.users.id, userId)),
     db.update(schema.bookings)
-      .set({ notes: null })
+      .set({ notes: null, rejectionReason: null })
       .where(eq(schema.bookings.userId, userId)),
     db.delete(schema.pushSubscriptions)
       .where(eq(schema.pushSubscriptions.userId, userId))

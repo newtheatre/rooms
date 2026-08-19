@@ -26,7 +26,7 @@ session and is read from there.
 | Column | Notes |
 | --- | --- |
 | `id` | Canonical auth-service id. Never minted locally. |
-| `email` | Unique. Case-sensitive, which is why the migration had to fold case-duplicates. |
+| `email` | Unique. Case-sensitive, which is why the migration had to fold case-duplicates. Two auth-service ids can hold one address before a merge, so `ensureLocalUser` mirrors the later one under a placeholder rather than failing ([ADR-0004](decisions/0004-an-email-collision-must-not-break-every-request.md)). |
 | `is_rooms_admin` | **A cache, not an authority.** Refreshed from the session on each request and used only to decide who receives admin notification fan-out — a cron has no session to read roles from. Never gate access on it. |
 | `notification_channels` | JSON array, e.g. `["EMAIL", "PUSH"]`. Unparseable values fall back to `["EMAIL"]`. |
 | `notification_preferences` | JSON array, e.g. `["BOOKING_UPDATES"]`. Unparseable values fall back to `["BOOKING_UPDATES"]`. |
