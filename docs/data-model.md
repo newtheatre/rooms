@@ -126,6 +126,15 @@ are approved, moved and cancelled individually.
 
 `onDelete: Cascade` from the parent booking, so deleting the series head takes the pattern with it.
 
+`bookings.parent_booking_id` cascades the same way, which means removing the head would remove
+every later occurrence. `DELETE /api/bookings/:id` promotes the next occurrence to head the series
+before deleting the old one, so the default scope removes exactly one row
+([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). `?scope=series` is the
+way to remove all of them, and it relies on the cascade deliberately.
+
+`occurrence_number` is not renumbered on promotion: it records which occurrence of the original
+pattern a row was, which stays true.
+
 ## push_subscriptions
 
 One row per device or browser, keyed on a unique `endpoint`, cascading from the user.

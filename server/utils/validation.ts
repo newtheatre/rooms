@@ -264,6 +264,11 @@ export const availableRoomsQuerySchema = z.object({
   { message: 'End time must be after start time', path: ['endTime'] }
 )
 
+export const bookingDeleteQuerySchema = z.object({
+  // 'occurrence' keeps the rest of the series; 'series' removes all of it.
+  scope: z.enum(['occurrence', 'series']).optional().default('occurrence')
+})
+
 export const roomDeleteQuerySchema = z.object({
   permanent: booleanFlag
 })

@@ -6,6 +6,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'
+import { isSeriesMember, promoteNextOccurrence, seriesBookings, seriesParentId } from '~~/server/utils/bookingSeries'
 
 defineRouteMeta({
   openAPI: {
@@ -20,6 +21,13 @@ defineRouteMeta({
         required: true,
         schema: { type: 'integer' },
         description: 'Booking ID'
+      },
+      {
+        in: 'query',
+        name: 'scope',
+        required: false,
+        schema: { type: 'string', enum: ['occurrence', 'series'], default: 'occurrence' },
+        description: 'Delete just this occurrence, or the whole recurring series'
       }
     ],
     responses: {
@@ -73,6 +81,13 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const { scope } = await getValidatedQuery(event, bookingDeleteQuerySchema.parse)
+  const deletingSeries = scope === 'series' && isSeriesMember(booking)
+
+  const doomed = deletingSeries
+    ? await seriesBookings(seriesParentId(booking))
+    : [booking]
+
   // The notification needs the columns the booking response deliberately omits.
   const notifyUser = booking.userId
     ? firstRow(await db.select().from(schema.users).where(eq(schema.users.id, booking.userId)).limit(1))
@@ -80,10 +95,13 @@ export default defineEventHandler(async (event) => {
 
   // Send notification before deletion if user exists
   if (notifyUser) {
+    const byAdmin = can(user, 'booking.manage.any')
     const bookingDateTime = formatBookingDateTime(booking)
-    const message = can(user, 'booking.manage.any')
-      ? `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled by an administrator.`
-      : `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled.`
+    const suffix = byAdmin ? ' by an administrator' : ''
+
+    const message = deletingSeries
+      ? `All ${doomed.length} occurrences of your booking "${booking.eventTitle}" have been cancelled${suffix}.`
+      : `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled${suffix}.`
 
     // Send notification
     await notifyBookingUpdate(notifyUser, booking, message).catch((err) => {
@@ -91,8 +109,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Delete the booking
-  await db.delete(schema.bookings).where(eq(schema.bookings.id, id))
+  if (deletingSeries) {
+    // Deleting the head cascades to the rest, which is what is wanted here.
+    await db.delete(schema.bookings).where(eq(schema.bookings.id, seriesParentId(booking)))
+  } else {
+    // Otherwise the cascade would take every later occurrence with it.
+    await promoteNextOccurrence(id)
+    await db.delete(schema.bookings).where(eq(schema.bookings.id, id))
+  }
 
-  return { message: 'Booking deleted successfully' }
+  return {
+    message: 'Booking deleted successfully',
+    deleted: doomed.length
+  }
 })
