@@ -154,8 +154,24 @@ export const updateBookingSchema = z.object({
   status: bookingStatusSchema.optional(),
   rejectionReason: z.string().max(500).optional(),
   // The admin override: double-book deliberately, which the UI asks about first.
-  allowConflicts: z.boolean().optional()
+  allowConflicts: z.boolean().optional(),
+  eventTitle: z.string().min(1, 'Event title is required').max(255).optional(),
+  numberOfAttendees: z.number().int().positive().optional(),
+  startTime: z.iso.datetime('Invalid start time').optional(),
+  endTime: z.iso.datetime('Invalid end time').optional(),
+  notes: z.string().max(1000).optional()
 }).refine(
+  (data) => {
+    if (data.startTime && data.endTime) {
+      return new Date(data.endTime) > new Date(data.startTime)
+    }
+    return true
+  },
+  {
+    message: 'End time must be after start time',
+    path: ['endTime']
+  }
+).refine(
   (data) => {
     // Can't assign both room and external venue
     if (data.roomId && data.externalVenueId) {

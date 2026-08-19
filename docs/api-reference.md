@@ -57,9 +57,13 @@ Admins are notified of anything left `PENDING`, as one batched email rather than
 
 The two roles are validated against different schemas.
 
-- **Admin** — `roomId`, `externalVenueId`, `status`, `rejectionReason`, `allowConflicts`.
+- **Admin** — `roomId`, `externalVenueId`, `status`, `rejectionReason`, `allowConflicts`, plus the schedule fields `eventTitle`, `numberOfAttendees`, `startTime`, `endTime` and `notes`.
 - **Owner, `PENDING` only** — `eventTitle`, `numberOfAttendees`, `startTime`, `endTime`, `notes`.
 - **Owner, `PENDING` or `CONFIRMED`** — `status: "CANCELLED"`, the only status an owner may set.
+
+Moving a booking is an admin action: changing `startTime` or `endTime` re-checks occupancy for
+the new window, so a move onto an occupied slot is a 409 like any other clash. This is what makes
+"occurrences are moved one at a time" possible at all.
 
 An owner may cancel a confirmed slot but not edit one: giving the room back is theirs to
 decide, moving it is not. Every owner cancellation alerts the admins who have opted in, and
