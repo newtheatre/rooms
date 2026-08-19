@@ -84,6 +84,16 @@ again rather than reopened.
 | `REJECTED` | Declined, with a reason. |
 | `CANCELLED` | Withdrawn by the requester or an admin. |
 
+### Recurrence and the clock
+
+Occurrences are generated on London wall-clock parts, not by stepping a `Date`, so a weekly
+rehearsal keeps its time across a BST transition and a weekly pattern selects the days the member
+actually picked. The Worker runs in UTC, where `Date`'s local mutators do neither
+([ADR-0002](decisions/0002-recurrence-arithmetic-in-europe-london.md)).
+
+A booking's duration is an absolute span: a two-hour rehearsal stays two hours even if the clocks
+change during it. Only the start is anchored to the wall clock.
+
 ### Occupancy
 
 A space is occupied by bookings in **`CONFIRMED`, `PENDING` or `AWAITING_EXTERNAL`** — a pending

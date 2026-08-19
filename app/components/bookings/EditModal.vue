@@ -116,17 +116,15 @@ const computedStatus = computed(() => {
 function populateForm() {
   if (!props.booking) return
 
-  const start = new Date(props.booking.startTime)
-  const end = new Date(props.booking.endTime)
-
-  // Parse date for calendar
-  const dateStr = start.toISOString().split('T')[0]!
+  // Date and time both read in London, so a booking near midnight keeps its day.
+  const start = londonDateAndTime(props.booking.startTime)
+  const end = londonDateAndTime(props.booking.endTime)
 
   state.eventTitle = props.booking.eventTitle
   state.numberOfAttendees = props.booking.numberOfAttendees || undefined
-  state.eventDate = parseDate(dateStr)
-  state.startTime = start.toTimeString().substring(0, 5) // HH:MM
-  state.endTime = end.toTimeString().substring(0, 5) // HH:MM
+  state.eventDate = parseDate(start.date)
+  state.startTime = start.time
+  state.endTime = end.time
   state.notes = props.booking.notes || undefined
 
   // Determine venue type and assignment

@@ -30,19 +30,42 @@ export function formatCalendarDate(date: CalendarDate): string {
   return calendarDateFormat.format(date.toDate('UTC'))
 }
 
+const partsFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: LONDON, year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+})
+
+/** How far London is ahead of UTC at this instant, in milliseconds. */
+function londonOffset(instant: Date): number {
+  const p = partsFormat.formatToParts(instant)
+  const v = (type: string) => Number(p.find(part => part.type === type)!.value)
+  const asIfUTC = Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute'))
+
+  return asIfUTC - Math.floor(instant.getTime() / 60_000) * 60_000
+}
+
+/** The London wall-clock date and time of an instant, for populating a form. */
+export function londonDateAndTime(value: Date | string | number): { date: string, time: string } {
+  const p = partsFormat.formatToParts(new Date(value))
+  const part = (type: string) => p.find(x => x.type === type)!.value
+
+  return {
+    date: `${part('year')}-${part('month')}-${part('day')}`,
+    time: `${part('hour')}:${part('minute')}`
+  }
+}
+
 /**
- * Combine a CalendarDate and an HH:MM string into an ISO datetime.
+ * Combine a CalendarDate and an HH:MM string into an ISO datetime, reading both
+ * as London wall-clock rather than whatever zone the browser is set to.
  */
 export function combineDateAndTime(date: CalendarDate, time: string): string {
-  const [hour, minute] = time.split(':').map(Number)
+  const [hour = 0, minute = 0] = time.split(':').map(Number)
+  const wallClock = Date.UTC(date.year, date.month - 1, date.day, hour, minute)
 
-  const dateTime = new Date(
-    date.year,
-    date.month - 1, // JavaScript months are 0-indexed
-    date.day,
-    hour,
-    minute
-  )
+  // Resolved twice: the offset that applies is the one at the answer.
+  let instant = wallClock - londonOffset(new Date(wallClock))
+  instant = wallClock - londonOffset(new Date(instant))
 
-  return dateTime.toISOString()
+  return new Date(instant).toISOString()
 }
