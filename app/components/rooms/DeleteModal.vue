@@ -24,6 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const showError = useErrorToast()
 const open = ref(false)
 const isDeleting = ref(false)
 
@@ -67,13 +68,7 @@ async function onSubmit() {
     open.value = false
     emit('refresh')
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to delete rooms',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to delete rooms')
   } finally {
     isDeleting.value = false
   }

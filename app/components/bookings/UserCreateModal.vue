@@ -11,6 +11,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const showError = useErrorToast()
 const open = ref(false)
 const isSubmitting = ref(false)
 
@@ -233,13 +234,7 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
     open.value = false
     emit('refresh')
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to submit booking request',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to submit booking request')
   } finally {
     isSubmitting.value = false
   }

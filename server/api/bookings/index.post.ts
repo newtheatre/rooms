@@ -152,10 +152,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // The notification needs the columns the booking response deliberately omits.
-  const notifyUser = booking.userId
-    ? firstRow(await db.select().from(schema.users).where(eq(schema.users.id, booking.userId)).limit(1))
-    : undefined
+  const notifyUser = await loadUserForNotify(booking.userId)
 
   // Send confirmation notification
   if (notifyUser) {

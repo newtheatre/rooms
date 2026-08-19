@@ -18,6 +18,7 @@ definePageMeta({
 })
 
 const toast = useToast()
+const showError = useErrorToast()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const table = useTemplateRef<any>('table')
 
@@ -67,13 +68,7 @@ async function deleteSingleVenue() {
     venueToDelete.value = null
     await refresh()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to delete venue',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to delete venue')
   }
 }
 

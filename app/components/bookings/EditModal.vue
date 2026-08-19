@@ -26,6 +26,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const showError = useErrorToast()
 const open = defineModel<boolean>('open', { default: false })
 const isSubmitting = ref(false)
 
@@ -182,13 +183,7 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
     open.value = false
     emit('refresh')
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to update booking',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to update booking')
   } finally {
     isSubmitting.value = false
   }

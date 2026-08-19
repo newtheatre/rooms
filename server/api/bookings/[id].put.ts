@@ -151,12 +151,7 @@ export default defineEventHandler(async (event) => {
     if (statusChanged && updatedBooking.userId) {
       const message = bookingStatusMessage(updatedBooking)
 
-      // The response deliberately omits the notification columns.
-      const fullUser = firstRow(await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, updatedBooking.userId))
-        .limit(1))
+      const fullUser = await loadUserForNotify(updatedBooking.userId)
 
       if (fullUser) {
         // Send notification

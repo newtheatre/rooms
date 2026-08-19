@@ -83,6 +83,15 @@ export async function findBooking(id: number): Promise<BookingWithRelations | un
 }
 
 /**
+ * One full user row, for notification fan-out. Bookings carry an allow-listed
+ * user, which deliberately omits the notification columns.
+ */
+export async function loadUserForNotify(userId: string | null) {
+  if (!userId) return undefined
+  return (await loadUsersByIds([userId])).get(userId)
+}
+
+/**
  * Full user rows keyed by id, for notification fan-out. Bookings carry an
  * allow-listed user, which deliberately omits the notification columns.
  */

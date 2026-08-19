@@ -29,28 +29,6 @@ watch(() => props.booking, (newBooking) => {
   }
 }, { immediate: true })
 
-const getStatusColor = (status: Booking['status']) => {
-  switch (status) {
-    case 'PENDING': return 'warning'
-    case 'CONFIRMED': return 'success'
-    case 'AWAITING_EXTERNAL': return 'info'
-    case 'REJECTED': return 'error'
-    case 'CANCELLED': return 'neutral'
-    default: return 'neutral'
-  }
-}
-
-const getStatusLabel = (status: Booking['status']) => {
-  switch (status) {
-    case 'PENDING': return 'Pending'
-    case 'CONFIRMED': return 'Confirmed'
-    case 'AWAITING_EXTERNAL': return 'Awaiting External'
-    case 'REJECTED': return 'Rejected'
-    case 'CANCELLED': return 'Cancelled'
-    default: return status
-  }
-}
-
 async function onSubmit() {
   if (!props.booking) return
 
@@ -93,8 +71,8 @@ async function onSubmit() {
             <component
               :is="UBadge"
               v-if="booking"
-              :color="getStatusColor(booking.status)"
-              :label="getStatusLabel(booking.status)"
+              :color="statusBadge(booking.status).color"
+              :label="statusBadge(booking.status).label"
               variant="subtle"
             />
           </p>

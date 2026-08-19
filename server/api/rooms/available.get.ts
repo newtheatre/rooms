@@ -3,6 +3,7 @@
  * own rows so editing it does not conflict with itself.
  */
 
+import type { Conflict } from '~~/server/utils/availability'
 import { getAvailableRooms } from '~~/server/utils/availability'
 
 defineRouteMeta({
@@ -129,38 +130,15 @@ export default defineEventHandler(async (event) => {
     }
   )
 
-  // Format conflicts to hide sensitive user data for non-admins
-  interface ConflictWithUser {
-    id: number
-    eventTitle: string
-    startTime: Date
-    endTime: Date
-    status: string
-    user?: {
-      id: string
-      name: string
-      email: string
-    }
-  }
-
-  const formatConflicts = (conflicts: typeof unavailable[0]['conflicts']) => {
-    return conflicts.map((conflict) => {
-      const formatted: Record<string, unknown> = {
-        id: conflict.id,
-        eventTitle: canSeeBookers ? conflict.eventTitle : 'Booked',
-        startTime: conflict.startTime,
-        endTime: conflict.endTime,
-        status: conflict.status
-      }
-
-      const conflictWithUser = conflict as unknown as ConflictWithUser
-      if (canSeeBookers && conflictWithUser.user) {
-        formatted.user = conflictWithUser.user
-      }
-
-      return formatted
-    })
-  }
+  // Who holds a clashing booking is admin-only; everyone else sees "Booked".
+  const formatConflicts = (conflicts: Conflict[]) => conflicts.map(conflict => ({
+    id: conflict.id,
+    eventTitle: canSeeBookers ? conflict.eventTitle : 'Booked',
+    startTime: conflict.startTime,
+    endTime: conflict.endTime,
+    status: conflict.status,
+    ...(canSeeBookers && conflict.user ? { user: conflict.user } : {})
+  }))
 
   const response = {
     available,

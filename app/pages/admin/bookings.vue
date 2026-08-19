@@ -19,6 +19,7 @@ definePageMeta({
 })
 
 const toast = useToast()
+const showError = useErrorToast()
 const route = useRoute()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const table = useTemplateRef<any>('table')
@@ -175,28 +176,6 @@ const relatedBookingsForModal = computed(() => {
 })
 
 // Status badge configuration
-const getStatusColor = (status: Booking['status']) => {
-  switch (status) {
-    case 'PENDING': return 'warning'
-    case 'CONFIRMED': return 'success'
-    case 'AWAITING_EXTERNAL': return 'info'
-    case 'REJECTED': return 'error'
-    case 'CANCELLED': return 'neutral'
-    default: return 'neutral'
-  }
-}
-
-const getStatusLabel = (status: Booking['status']) => {
-  switch (status) {
-    case 'PENDING': return 'Pending'
-    case 'CONFIRMED': return 'Confirmed'
-    case 'AWAITING_EXTERNAL': return 'Awaiting External'
-    case 'REJECTED': return 'Rejected'
-    case 'CANCELLED': return 'Cancelled'
-    default: return status
-  }
-}
-
 // Assign internal room
 async function assignRoom(booking: Booking, roomId: number, roomName?: string) {
   // Check if this is a recurring booking
@@ -254,13 +233,7 @@ async function assignRoomDirect(booking: Booking, roomId: number, relatedBooking
     })
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to assign room',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to assign room')
   }
 }
 
@@ -301,13 +274,7 @@ async function initiateExternalDirect(booking: Booking, relatedBookings?: Bookin
     })
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to initiate external booking',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to initiate external booking')
   }
 }
 
@@ -354,13 +321,7 @@ async function confirmAndAssignVenueDirect(booking: Booking, venueId: number, re
     })
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to confirm booking',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to confirm booking')
   }
 }
 
@@ -384,13 +345,7 @@ async function rejectDirect(booking: Booking, rejectionReason: string, relatedBo
     })
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to reject booking',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to reject booking')
   }
 }
 
@@ -416,13 +371,7 @@ async function deleteDirect(booking: Booking, relatedBookings?: Booking[]) {
     })
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to delete booking',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to delete booking')
   }
 }
 
@@ -560,13 +509,7 @@ async function bulkReject() {
     rowSelection.value = {}
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to reject bookings',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to reject bookings')
   }
 }
 
@@ -592,13 +535,7 @@ async function bulkDelete() {
     rowSelection.value = {}
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to delete bookings',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to delete bookings')
   }
 }
 
@@ -647,13 +584,7 @@ async function bulkAssignRoom(roomId: number) {
     bulkAssignRoomId.value = null
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to assign rooms',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to assign rooms')
   }
 }
 
@@ -703,13 +634,7 @@ async function bulkAssignVenue(venueId: number) {
     bulkAssignVenueId.value = null
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to assign venues',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to assign venues')
   }
 }
 
@@ -755,13 +680,7 @@ async function bulkInitiateExternal() {
     rowSelection.value = {}
     await refreshBookings()
   } catch (error: unknown) {
-    const err = error as { data?: { message?: string } }
-    toast.add({
-      title: 'Error',
-      description: err.data?.message || 'Failed to initiate external bookings',
-      icon: 'i-lucide-x-circle',
-      color: 'error'
-    })
+    showError(error, 'Failed to initiate external bookings')
   }
 }
 
@@ -989,8 +908,8 @@ const columns: TableColumn<Booking>[] = [
     cell: ({ row }) => {
       const booking = row.original
       return h(UBadge, {
-        color: getStatusColor(booking.status),
-        label: getStatusLabel(booking.status),
+        color: statusBadge(booking.status).color,
+        label: statusBadge(booking.status).label,
         variant: 'subtle'
       })
     }
