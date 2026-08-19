@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
   const includeInactive = query.includeInactive === 'true'
 
   // Only admins can see inactive rooms
-  const isAdmin = hasRole(user, 'rooms', 'ADMIN')
+  const isAdmin = can(user, 'room.read.inactive')
   const showInactive = isAdmin && includeInactive
 
   // Non-admins get an explicit column list, never the whole row.

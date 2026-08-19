@@ -104,6 +104,15 @@ stage-door retries them until they succeed.
 | `POST /api/_hooks/auth/anonymise` | Scrubs the mirror row. Bookings survive as anonymous rows. |
 | `POST /api/_hooks/auth/last-activity` | `{ userIds }` → latest booking activity per user. Chunks its `in` clause at 90 ids, because D1 caps bound parameters at 100. |
 | `POST /api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → re-points bookings and push subscriptions onto the winner, deletes the losing mirror row. Each statement binds two parameters however many rows move, so no chunking is needed here. The winner's own preferences are untouched. (stage-door ADR-0015) |
+| `GET /api/_hooks/auth/manifest` | This app's declaration: namespace, the roles it reads, and the permissions each carries. The auth service polls it and turns the roles into definitions, so adding a role here is what makes it grantable (stage-door ADR-0017). |
+
+The manifest is `shared/utils/appManifest.ts`, served verbatim. `rooms:ADMIN` is still the only role
+this app owns, but the four things it actually gates are now named rather than inferred:
+`admin.access`, `booking.read.any`, `booking.manage.any` and `room.read.inactive`. That distinction
+matters at the sites that redact a field rather than refuse a request, such as the booked-by name in
+`GET /api/rooms/available`. Every check now names one of them rather than the role that implies it.
+
+Permissions are lowercase and dotted where roles are uppercase, so no string can be read as both.
 
 ## Other
 

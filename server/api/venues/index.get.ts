@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
     asc(schema.externalVenues.roomName)
   ]
 
-  const isAdmin = hasRole(user, 'rooms', 'ADMIN')
+  const isAdmin = can(user, 'room.read.inactive')
 
   // Non-admins get an explicit column list, never the whole row.
   if (!isAdmin) {
