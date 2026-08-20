@@ -31,7 +31,8 @@ export default defineEventHandler(async (event) => {
         name: 'Deleted user',
         isRoomsAdmin: false,
         notificationChannels: '[]',
-        notificationPreferences: '[]'
+        notificationPreferences: '[]',
+        anonymisedAt: new Date()
       })
       .where(eq(schema.users.id, userId)),
     db.update(schema.bookings)
