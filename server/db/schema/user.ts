@@ -19,7 +19,10 @@ export const users = sqliteTable('users', {
   notificationChannels: text('notification_channels').notNull().default('["EMAIL"]'),
   notificationPreferences: text('notification_preferences').notNull().default('["BOOKING_UPDATES"]'),
 
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date())
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+
+  /** Set by the erasure hook. A row carrying it is never written back over. */
+  anonymisedAt: integer('anonymised_at', { mode: 'timestamp_ms' })
 }, table => [
   // Index names match the live tables, which Prisma created (ADR-0001).
   uniqueIndex('users_email_key').on(table.email)

@@ -8,6 +8,7 @@ import type { User } from '~~/server/db/schema/user'
 import type { Booking } from '~~/server/db/schema/booking'
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
+import { LONDON } from './london'
 import { getResend } from './resend'
 
 export type NotificationChannel = 'EMAIL' | 'PUSH'
@@ -19,8 +20,6 @@ export type BookingWithSpace = Booking & {
   room?: { name: string } | null
   externalVenue?: { building: string, roomName: string } | null
 }
-
-export const LONDON = 'Europe/London'
 
 /** e.g. "Mon, 15 Jan 2024 at 2:00 pm - 4:00 pm". */
 export function formatBookingDateTime(booking: Booking): string {

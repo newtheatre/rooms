@@ -2,7 +2,6 @@
  * Create a user to attach a booking to. Admin only.
  * Asks the auth service for a shadow account and mirrors the canonical id.
  */
-import { db, schema } from '@nuxthub/db'
 import { z } from 'zod'
 
 defineRouteMeta({
@@ -70,14 +69,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 502, message: 'Could not reach the auth service, try again' })
   }
 
-  const user = requireRow(await db
-    .insert(schema.users)
-    .values({ id: shadow.id, email, name })
-    .onConflictDoUpdate({
-      target: schema.users.id,
-      set: { email, name }
+  const user = await upsertMirroredUser({ id: shadow.id, email, name })
+
+  if (!user) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Account erased',
+      message: 'That account has been erased and cannot be re-created here.'
     })
-    .returning())
+  }
 
   return { id: user.id, email: user.email, name: user.name, existing: shadow.existing }
 })

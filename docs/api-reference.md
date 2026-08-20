@@ -159,12 +159,16 @@ The hook is idempotent, because stage-door retries it until it succeeds.
 
 | Table | Columns |
 | --- | --- |
-| `users` | `email` becomes `deleted-<id>@anonymised.invalid`, `name` becomes "Deleted user", `is_rooms_admin` cleared, both notification columns emptied |
+| `users` | `email` becomes `deleted-<id>@anonymised.invalid`, `name` becomes "Deleted user", `is_rooms_admin` cleared, both notification columns emptied, `anonymised_at` stamped |
 | `bookings` | `notes` and `rejection_reason` nulled. Everything else survives, so booking statistics do. |
 | `push_subscriptions` | Rows deleted outright |
 
 `rejection_reason` is admin-written free text about the requester, so it is scrubbed with the
 notes and is returned by the export hook.
+
+`anonymised_at` is what stops the scrub being undone. A sealed session stays readable after
+erasure, and every authenticated request upserts the mirror; the upsert skips a row carrying that
+column, so the erased details are not written back ([ADR-0005](decisions/0005-an-erased-user-is-never-written-back-over.md)).
 
 The manifest is `shared/utils/appManifest.ts`, served verbatim. `rooms:ADMIN` is still the only role
 this app owns, but the four things it actually gates are now named rather than inferred:

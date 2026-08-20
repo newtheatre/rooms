@@ -90,6 +90,8 @@ jobs:
 
       # nuxt-db, not nuxt db. The nuxt db proxy swallows the exit code, so a
       # failed migration still exits 0 (verified on 0.10.6 and 0.10.8).
+      # Needs @nuxthub/core >= 0.10.7. 0.10.6 called /d1/db/, which is not a
+      # route, so the ledger read failed and every run failed here.
       - name: Apply migrations
         run: NODE_ENV=production ./node_modules/.bin/nuxt-db migrate --verbose
 

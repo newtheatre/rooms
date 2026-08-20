@@ -8,6 +8,20 @@
       "when": 1786998684717,
       "tag": "0000_baseline_from_prisma",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787079282000,
+      "tag": "0001_dates_to_integer_ms",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787207626584,
+      "tag": "0002_anonymised_at_on_users",
+      "breakpoints": true
     }
   ]
 }

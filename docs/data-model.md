@@ -30,6 +30,7 @@ session and is read from there.
 | `is_rooms_admin` | **A cache, not an authority.** Refreshed from the session on each request and used only to decide who receives admin notification fan-out; a cron has no session to read roles from. Never gate access on it. |
 | `notification_channels` | JSON array, e.g. `["EMAIL", "PUSH"]`. Unparseable values fall back to `["EMAIL"]`. |
 | `notification_preferences` | JSON array, e.g. `["BOOKING_UPDATES"]`. Unparseable values fall back to `["BOOKING_UPDATES"]`. |
+| `anonymised_at` | Set by the erasure hook. While it is non-null the row is never written back over, whichever caller asks ([ADR-0005](decisions/0005-an-erased-user-is-never-written-back-over.md)). `server/utils/mirrorUser.ts` is the one write path. |
 
 Account-security email ignores both notification columns.
 
