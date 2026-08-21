@@ -4,6 +4,7 @@
  */
 
 import type { User } from '#auth-utils'
+import { hasRole } from '@newtheatre/auth-types'
 import { upsertMirroredUser } from './mirrorUser'
 
 const lastUpserted = new Map<string, number>()

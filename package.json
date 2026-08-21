@@ -16,6 +16,7 @@
   "dependencies": {
     "@iconify-json/lucide": "^1.2.68",
     "@iconify-json/simple-icons": "^1.2.54",
+    "@newtheatre/auth-types": "^1.0.0",
     "@nuxt/content": "3.11.2",
     "@nuxt/ui": "4.4.0",
     "@nuxthub/core": "0.10.8",

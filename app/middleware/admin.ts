@@ -2,6 +2,8 @@
  * Estate session plus `rooms:ADMIN`, and the session must be fresh. Stale
  * roles bounce through the auth service's refresh endpoint.
  */
+import { isStale } from '@newtheatre/auth-types'
+
 export default defineNuxtRouteMiddleware((to) => {
   const { loggedIn, user, session } = useUserSession()
   const config = useRuntimeConfig()

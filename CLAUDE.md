@@ -14,14 +14,13 @@ This is the least-maintained repo in the estate. Read [README.md](README.md) §K
 bun install        # deps (Bun is the package manager, bun.lock is the only lockfile)
 bun run dev        # local dev server on :3000
 bun run lint       # eslint
-bun run typecheck  # nuxt typecheck, one known error, see README
+bun run typecheck  # nuxt typecheck
 bun run build      # the production Worker bundle
 bun run db:generate # generate a migration from schema changes (review the SQL!)
 bun run db:migrate  # apply migrations to the local database
 ```
 
-CI gates on lint and build. There is no test suite. `typecheck` reports exactly one error, in
-`shared/utils/nntAuth.ts`; it is an artefact, not a real fault (README §Known gaps).
+CI gates on lint, typecheck and build. There is no test suite.
 
 ## Source of truth & docs discipline
 
@@ -33,7 +32,7 @@ CI gates on lint and build. There is no test suite. `typecheck` reports exactly 
 ## Invariants: do not break these
 
 1. **This app never writes the session.** `getUserSession()` is read-only; the sealed `nnt-session` cookie belongs to stage-door. Sole exception: `server/routes/dev-login.get.ts`, guarded by `import.meta.dev`. Use `replaceUserSession` there, never `setUserSession`. The latter merges, and `defu` concatenates arrays, so signing in as a plain user on top of an admin session keeps the admin roles.
-2. **`shared/utils/nntAuth.ts` is a verbatim copy** of stage-door's `packages/auth-types/index.ts`. Never edit it here; change the source and re-copy to all three consumer apps.
+2. **The session contract is `@newtheatre/auth-types`**, published from stage-door's `packages/auth-types` (stage-door ADR-0025). Never redeclare it inline; change the source, bump its version, and update the dependency here.
 3. **`rooms:ADMIN` is the only role this app owns.** Being signed in is enough to request a booking. No credential storage, no role editing, no password UI; that is all the auth service's.
 4. **A pending request holds its slot.** Availability counts `CONFIRMED`, `PENDING` and `AWAITING_EXTERNAL`, so two people cannot both be told yes. `server/utils/availability.ts` is the single implementation and `server/utils/bookingWrites.ts` is the single write path: change a booking through `applyBookingChange`, never `db.update(schema.bookings)` directly, or the check is skipped. `allowConflicts` is the deliberate admin override.
 5. **Recurring bookings are individual rows.** There is no series entity; occurrences are approved, moved and cancelled one at a time.

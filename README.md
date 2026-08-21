@@ -64,8 +64,8 @@ The estate's sealed `nnt-session` cookie is written only by `auth.newtheatre.org
 it with `getUserSession()`. `rooms:ADMIN` is the only role this app owns; being signed in is
 enough to make a booking request.
 
-`shared/utils/nntAuth.ts` is a **verbatim copy** of stage-door's `packages/auth-types/index.ts`.
-Do not edit it here: change it there and re-copy to all three consumer apps.
+The session contract is `@newtheatre/auth-types`, published from stage-door's `packages/auth-types`
+(stage-door ADR-0025). Do not redeclare it here: change the source and bump its version.
 
 Full integration story: stage-door `docs/integrating-an-app.md`.
 
@@ -74,14 +74,14 @@ Full integration story: stage-door `docs/integrating-an-app.md`.
 ```bash
 bun run dev        # local dev server
 bun run lint       # eslint
-bun run typecheck  # nuxt typecheck, one known error, see below
+bun run typecheck  # nuxt typecheck
 bun run build      # the production Worker bundle
 bun run db:generate # generate a migration from schema changes (review the SQL!)
 bun run db:migrate  # apply migrations to the local database
 ```
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint and build on every push and PR.
-Cloudflare Workers Builds deploys `main`; deployment is not CI's job.
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint, typecheck and build on every
+push and PR. Cloudflare Workers Builds deploys `main`; deployment is not CI's job.
 
 **Migrations are.** `.github/workflows/migrate.yml` applies pending migrations on any push to `main`
 that touches `server/db/migrations/**`. Workers Builds only builds and deploys, and nothing applied
@@ -113,16 +113,6 @@ Recorded here rather than left to be discovered:
   the rooms one, so the admin venue picker does not mark which venues are taken. Assigning a
   clashing venue is still refused server-side with a 409, so this costs a wasted click rather
   than a double booking.
-
-**`bun run typecheck` reports exactly one error**, down from sixteen. It is in
-`shared/utils/nntAuth.ts`, on its `declare module '#auth-utils'`, and it is an artefact of that
-being the only file in `shared/`: nothing there imports anything, so TypeScript never resolves
-`#auth-utils` in the shared project and rejects the augmentation. proscenium carries a
-byte-identical copy and passes, because its shared files import `#imports`.
-
-The file is a verbatim copy of stage-door's `packages/auth-types` and must not be edited here, so
-this stays until either that package is published or something else lands in `shared/`. CI gates on
-lint and build, both of which pass.
 
 Note that `content/docs/` is **user-facing** guidance published to the site. Engineering
 documentation lives in [`docs/`](docs/).
