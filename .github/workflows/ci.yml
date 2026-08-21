@@ -1,8 +1,5 @@
-# Lint + build on every push and PR. Deployment is NOT here: Cloudflare's
-# Workers Builds git integration deploys main on its own.
-#
-# `bun run typecheck` is deliberately absent: it does not currently pass on
-# main (see README §Known gaps). Add it here in the same PR that fixes it.
+# Lint + typecheck + build on every push and PR. Deployment is NOT here:
+# Cloudflare's Workers Builds git integration deploys main on its own.
 name: CI
 
 on:
@@ -13,6 +10,9 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
@@ -20,14 +20,20 @@ jobs:
         with:
           bun-version: latest
 
+      # GH_PACKAGES_TOKEN reads @newtheatre/auth-types from GitHub Packages (ADR-0025).
       - name: Install
         run: bun install --frozen-lockfile
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lint
         run: bun run lint
 
       - name: Comments
         run: bun run check:comments
+
+      - name: Typecheck
+        run: bun run typecheck
 
       - name: Build
         run: bun run build

@@ -5,6 +5,7 @@
 
 import type { H3Event } from 'h3'
 import type { User } from '#auth-utils'
+import { isStale } from '@newtheatre/auth-types'
 
 /**
  * A permission claim, refused if the roles backing it are too old to trust.
