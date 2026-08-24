@@ -24,10 +24,10 @@ const open = ref(false)
 const isSubmitting = ref(false)
 
 const schema = z.object({
-  campus: z.string().max(255).optional().nullable(),
+  campus: z.string().max(255).optional(),
   building: z.string().min(1, 'Building is required').max(255),
   roomName: z.string().min(1, 'Room name is required').max(255),
-  contactDetails: z.string().max(500).optional().nullable()
+  contactDetails: z.string().max(500).optional()
 })
 
 type Schema = z.output<typeof schema>
