@@ -93,10 +93,16 @@ const links = computed<NavigationMenuItem[][]>(() => {
   return [[...baseLinks, ...adminLinks, settingsLink], docLinks]
 })
 
+// The palette takes only what it can act on. A nav item carries display state
+// (`chip`, children) that means nothing in a search result and no longer types.
 const groups = computed(() => [{
   id: 'links',
   label: 'Go to',
-  items: links.value.flat()
+  items: links.value.flat().map(link => ({
+    label: link.label,
+    icon: link.icon,
+    to: link.to
+  }))
 }])
 </script>
 

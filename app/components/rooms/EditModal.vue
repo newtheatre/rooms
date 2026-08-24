@@ -25,8 +25,8 @@ const isSubmitting = ref(false)
 
 const schema = z.object({
   name: z.string().min(1, 'Room name is required').max(255),
-  description: z.string().max(1000).optional().nullable(),
-  capacity: z.number().int().positive('Capacity must be a positive number').optional().nullable(),
+  description: z.string().max(1000).optional(),
+  capacity: z.number().int().positive('Capacity must be a positive number').optional(),
   isActive: z.boolean()
 })
 
