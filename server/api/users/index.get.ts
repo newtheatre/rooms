@@ -16,6 +16,18 @@ defineRouteMeta({
         name: 'search',
         schema: { type: 'string' },
         description: 'Search by name or email'
+      },
+      {
+        in: 'query',
+        name: 'limit',
+        schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+        description: 'Page size, default 50'
+      },
+      {
+        in: 'query',
+        name: 'offset',
+        schema: { type: 'integer', minimum: 0, default: 0 },
+        description: 'Rows to skip, default 0'
       }
     ],
     responses: {
@@ -24,16 +36,24 @@ defineRouteMeta({
         content: {
           'application/json': {
             schema: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  email: { type: 'string' },
-                  name: { type: 'string' },
-                  createdAt: { type: 'string', format: 'date-time' },
-                  bookingCount: { type: 'integer' }
-                }
+              type: 'object',
+              properties: {
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      email: { type: 'string' },
+                      name: { type: 'string' },
+                      createdAt: { type: 'string', format: 'date-time' },
+                      bookingCount: { type: 'integer' }
+                    }
+                  }
+                },
+                total: { type: 'integer' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' }
               }
             }
           }

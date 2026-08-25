@@ -18,6 +18,18 @@ defineRouteMeta({
         name: 'includeInactive',
         schema: { type: 'boolean' },
         description: 'Include inactive rooms (admin only)'
+      },
+      {
+        in: 'query',
+        name: 'limit',
+        schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+        description: 'Page size, default 50'
+      },
+      {
+        in: 'query',
+        name: 'offset',
+        schema: { type: 'integer', minimum: 0, default: 0 },
+        description: 'Rows to skip, default 0'
       }
     ],
     responses: {
@@ -26,18 +38,26 @@ defineRouteMeta({
         content: {
           'application/json': {
             schema: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'integer' },
-                  name: { type: 'string' },
-                  description: { type: 'string', nullable: true },
-                  capacity: { type: 'integer', nullable: true },
-                  isActive: { type: 'boolean', description: 'Admin only' },
-                  createdAt: { type: 'string', format: 'date-time', description: 'Admin only' },
-                  bookingCount: { type: 'integer', description: 'Admin only' }
-                }
+              type: 'object',
+              properties: {
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'integer' },
+                      name: { type: 'string' },
+                      description: { type: 'string', nullable: true },
+                      capacity: { type: 'integer', nullable: true },
+                      isActive: { type: 'boolean', description: 'Admin only' },
+                      createdAt: { type: 'string', format: 'date-time', description: 'Admin only' },
+                      bookingCount: { type: 'integer', description: 'Admin only' }
+                    }
+                  }
+                },
+                total: { type: 'integer' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' }
               }
             }
           }
