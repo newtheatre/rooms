@@ -3,7 +3,7 @@
  * types. Account-security mail ignores both.
  */
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 
 defineRouteMeta({
   openAPI: {
@@ -41,7 +41,8 @@ defineRouteMeta({
         }
       },
       400: { description: 'Validation error' },
-      401: { description: 'Not authenticated' }
+      401: { description: 'Not authenticated' },
+      409: { description: 'Account erased' }
     }
   }
 })
@@ -61,8 +62,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Update user preferences
-  const updatedUser = requireRow(await db
+  // An erased row is never written back over, whichever caller asks (ADR-0005).
+  const updatedUser = firstRow(await db
     .update(schema.users)
     .set({
       ...(data.notificationChannels && {
@@ -72,11 +73,23 @@ export default defineEventHandler(async (event) => {
         notificationPreferences: JSON.stringify(data.notificationPreferences)
       })
     })
-    .where(eq(schema.users.id, sessionUser.id))
+    .where(and(
+      eq(schema.users.id, sessionUser.id),
+      isNull(schema.users.anonymisedAt)
+    ))
     .returning({
       notificationChannels: schema.users.notificationChannels,
       notificationPreferences: schema.users.notificationPreferences
     }))
+
+  // The sealed cookie outlives erasure, so this is reachable (ADR-0005).
+  if (!updatedUser) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Account erased',
+      message: 'That account has been erased, so its notification settings can no longer be changed.'
+    })
+  }
 
   // Return parsed JSON
   return {

@@ -4,7 +4,8 @@
  */
 
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
+import { and, eq, gt, inArray, lt, ne, notExists, sql, type SQL } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/sqlite-core'
 import type { Booking } from '~~/server/db/schema/booking'
 import { validateBookingAvailability } from './availability'
 
@@ -36,6 +37,46 @@ function resolveSpace(existing: Booking, patch: BookingPatch) {
   return { roomId: existing.roomId, externalVenueId: existing.externalVenueId }
 }
 
+/** The same rows availability.ts counts, read from inside the write statement. */
+const clash = alias(schema.bookings, 'clash')
+
+/**
+ * The occupancy rule as a predicate on the write itself. D1 has no interactive
+ * transaction, so a SELECT alone cannot hold the slot (ADR-0008).
+ */
+function spaceStillFree(
+  existingId: number,
+  roomId: number | null,
+  externalVenueId: number | null,
+  startTime: Date,
+  endTime: Date
+): SQL | undefined {
+  const space = roomId
+    ? eq(clash.roomId, roomId)
+    : externalVenueId
+      ? eq(clash.externalVenueId, externalVenueId)
+      : undefined
+
+  if (!space) return undefined
+
+  return notExists(db
+    .select({ held: sql`1` })
+    .from(clash)
+    .where(and(
+      space,
+      ne(clash.id, existingId),
+      inArray(clash.status, OCCUPYING),
+      lt(clash.startTime, endTime),
+      gt(clash.endTime, startTime)
+    )))
+}
+
+/** The write a patch resolves to. `where` carries the occupancy re-check. */
+export interface PlannedBookingWrite {
+  changes: Record<string, unknown>
+  where: SQL
+}
+
 /**
  * Throws 409 if the patch would double-book, unless `allowConflicts`.
  * Returns the row as written.
@@ -45,8 +86,50 @@ export async function applyBookingChange(
   patch: BookingPatch,
   options: { allowConflicts?: boolean } = {}
 ): Promise<void> {
-  const changes = await planBookingChange(existing, patch, options)
-  await db.update(schema.bookings).set(changes).where(eq(schema.bookings.id, existing.id))
+  const { changes, where } = await planBookingChange(existing, patch, options)
+
+  const written = await db
+    .update(schema.bookings)
+    .set(changes)
+    .where(where)
+    .returning({ id: schema.bookings.id })
+
+  if (!written.length) await refuseBlockedBookingWrite(existing, patch)
+}
+
+/**
+ * Why a guarded write matched nothing: the row went, or a clash landed between
+ * the check and the write.
+ */
+export async function refuseBlockedBookingWrite(existing: Booking, patch: BookingPatch): Promise<never> {
+  const stillThere = firstRow(await db
+    .select({ id: schema.bookings.id })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.id, existing.id))
+    .limit(1))
+
+  if (!stillThere) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Booking not found',
+      message: 'That booking has already been deleted.'
+    })
+  }
+
+  const { roomId, externalVenueId } = resolveSpace(existing, patch)
+  await validateBookingAvailability(
+    roomId,
+    externalVenueId,
+    patch.startTime ?? existing.startTime,
+    patch.endTime ?? existing.endTime,
+    existing.id
+  )
+
+  throw createError({
+    statusCode: 409,
+    statusMessage: 'Space is not available',
+    message: 'Someone else took that slot while this change was being saved. Try again.'
+  })
 }
 
 /**
@@ -57,7 +140,7 @@ export async function planBookingChange(
   existing: Booking,
   patch: BookingPatch,
   options: { allowConflicts?: boolean } = {}
-): Promise<Record<string, unknown>> {
+): Promise<PlannedBookingWrite> {
   const { roomId, externalVenueId } = resolveSpace(existing, patch)
   const startTime = patch.startTime ?? existing.startTime
   const endTime = patch.endTime ?? existing.endTime
@@ -114,5 +197,9 @@ export async function planBookingChange(
     })
   }
 
-  return changes
+  const guard = OCCUPYING.includes(status) && !options.allowConflicts
+    ? spaceStillFree(existing.id, roomId, externalVenueId, startTime, endTime)
+    : undefined
+
+  return { changes, where: and(eq(schema.bookings.id, existing.id), guard)! }
 }

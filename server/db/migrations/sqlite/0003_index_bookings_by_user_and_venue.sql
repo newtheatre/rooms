@@ -1,0 +1,2 @@
+CREATE INDEX `bookings_user_id_start_time_idx` ON `bookings` (`user_id`,`start_time`);--> statement-breakpoint
+CREATE INDEX `bookings_external_venue_id_start_time_end_time_idx` ON `bookings` (`external_venue_id`,`start_time`,`end_time`);

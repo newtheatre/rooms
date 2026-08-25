@@ -6,7 +6,7 @@
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
 import { notifyBookingUpdate, formatBookingDateTime } from '~~/server/utils/notifications'
-import { isSeriesMember, promoteNextOccurrence, seriesBookings, seriesParentId } from '~~/server/utils/bookingSeries'
+import { deleteBookingWithPromotion, isSeriesMember, seriesBookings, seriesParentId } from '~~/server/utils/bookingSeries'
 
 defineRouteMeta({
   openAPI: {
@@ -92,7 +92,16 @@ export default defineEventHandler(async (event) => {
 
   const notifyUser = await loadUserForNotify(booking.userId)
 
-  // Send notification before deletion if user exists
+  if (deletingSeries) {
+    // Deleting the head cascades to the rest, which is what is wanted here.
+    await db.delete(schema.bookings).where(eq(schema.bookings.id, seriesParentId(booking)))
+  } else {
+    // Otherwise the cascade would take every later occurrence with it.
+    await deleteBookingWithPromotion(id)
+  }
+
+  // Told afterwards: a failed delete must not leave the member believing the
+  // room is free while the row still holds it.
   if (notifyUser) {
     const bookingDateTime = formatBookingDateTime(booking)
     const suffix = isAdmin ? ' by an administrator' : ''
@@ -101,19 +110,9 @@ export default defineEventHandler(async (event) => {
       ? `All ${doomed.length} occurrences of your booking "${booking.eventTitle}" have been cancelled${suffix}.`
       : `Your booking "${booking.eventTitle}" (${bookingDateTime}) has been cancelled${suffix}.`
 
-    // Send notification
     await notifyBookingUpdate(notifyUser, booking, message).catch((err) => {
       console.error('Failed to send booking cancellation notification:', err)
     })
-  }
-
-  if (deletingSeries) {
-    // Deleting the head cascades to the rest, which is what is wanted here.
-    await db.delete(schema.bookings).where(eq(schema.bookings.id, seriesParentId(booking)))
-  } else {
-    // Otherwise the cascade would take every later occurrence with it.
-    await promoteNextOccurrence(id)
-    await db.delete(schema.bookings).where(eq(schema.bookings.id, id))
   }
 
   return {

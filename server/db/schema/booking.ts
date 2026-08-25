@@ -33,7 +33,12 @@ export const bookings = sqliteTable('bookings', {
 }, table => [
   index('bookings_parent_booking_id_idx').on(table.parentBookingId),
   index('bookings_start_time_end_time_idx').on(table.startTime, table.endTime),
-  index('bookings_room_id_start_time_end_time_idx').on(table.roomId, table.startTime, table.endTime)
+  index('bookings_room_id_start_time_end_time_idx').on(table.roomId, table.startTime, table.endTime),
+
+  // SQLite indexes no foreign key, and every member-facing read filters on one
+  // of these two (docs/data-model.md#indexes).
+  index('bookings_user_id_start_time_idx').on(table.userId, table.startTime),
+  index('bookings_external_venue_id_start_time_end_time_idx').on(table.externalVenueId, table.startTime, table.endTime)
 ])
 
 /**

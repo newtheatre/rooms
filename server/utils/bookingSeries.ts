@@ -5,6 +5,7 @@
 
 import { db, schema } from '@nuxthub/db'
 import { and, asc, eq, inArray, ne } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import type { Booking } from '~~/server/db/schema/booking'
 
 /** The id every occurrence in the series hangs off. */
@@ -47,10 +48,10 @@ export async function seriesBookingsForParents(parentIds: number[]): Promise<Boo
 }
 
 /**
- * Moves the series onto its next occurrence so the head can be deleted without
- * the cascade taking the rest with it. No-op for a booking with no children.
+ * The writes that move a series onto its next occurrence, so the head can go
+ * without the cascade taking the rest. Empty for a booking with no children.
  */
-export async function promoteNextOccurrence(parentId: number): Promise<void> {
+export async function promoteNextOccurrenceWrites(parentId: number): Promise<BatchItem<'sqlite'>[]> {
   const successor = firstRow(await db
     .select()
     .from(schema.bookings)
@@ -58,26 +59,39 @@ export async function promoteNextOccurrence(parentId: number): Promise<void> {
     .orderBy(asc(schema.bookings.startTime))
     .limit(1))
 
-  if (!successor) return
+  if (!successor) return []
 
-  // Detach first: the successor must not point at a row that is about to go.
-  await db
-    .update(schema.bookings)
-    .set({ parentBookingId: null })
-    .where(eq(schema.bookings.id, successor.id))
+  return [
+    // Detach first: the successor must not point at a row that is about to go.
+    db
+      .update(schema.bookings)
+      .set({ parentBookingId: null })
+      .where(eq(schema.bookings.id, successor.id)),
 
-  // One statement however many siblings move, so the parameter count is fixed.
-  await db
-    .update(schema.bookings)
-    .set({ parentBookingId: successor.id })
-    .where(and(
-      eq(schema.bookings.parentBookingId, parentId),
-      ne(schema.bookings.id, successor.id)
-    ))
+    // One statement however many siblings move, so the parameter count is fixed.
+    db
+      .update(schema.bookings)
+      .set({ parentBookingId: successor.id })
+      .where(and(
+        eq(schema.bookings.parentBookingId, parentId),
+        ne(schema.bookings.id, successor.id)
+      )),
 
-  // The pattern hangs off the head and cascades with it.
-  await db
-    .update(schema.recurringPatterns)
-    .set({ bookingId: successor.id })
-    .where(eq(schema.recurringPatterns.bookingId, parentId))
+    // The pattern hangs off the head and cascades with it.
+    db
+      .update(schema.recurringPatterns)
+      .set({ bookingId: successor.id })
+      .where(eq(schema.recurringPatterns.bookingId, parentId))
+  ]
+}
+
+/**
+ * Promotion and the delete land together, or neither does: a half-run promotion
+ * splits the series in two and no later scope=series delete clears both halves.
+ */
+export async function deleteBookingWithPromotion(bookingId: number): Promise<void> {
+  const writes: BatchItem<'sqlite'>[] = await promoteNextOccurrenceWrites(bookingId)
+  writes.push(db.delete(schema.bookings).where(eq(schema.bookings.id, bookingId)))
+
+  await db.batch(writes as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]])
 }

@@ -20,12 +20,18 @@ const {
   availableRooms,
   unavailableRooms,
   isLoading: availabilityLoading,
+  error: availabilityError,
+  hasAvailability,
   fetchAvailability,
   totalAvailable,
   totalUnavailable
 } = useRoomAvailability({ includeUnavailable: true })
 
 const showUnavailableRooms = ref(false)
+
+watch(availabilityError, (err) => {
+  if (err) showError(err, 'Could not check which rooms are free')
+})
 
 const { data: users, status: usersStatus, refresh: refreshUsers } = useLazyAsyncData('users', () => fetchAllPages<UserOption>('/api/users'))
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
@@ -57,7 +63,10 @@ const userItems = computed(() =>
 
 // Combine availability data with room data for admin
 const roomItemsWithAvailability = computed(() => {
-  const roomsWithAvailability = availableRooms.value.length > 0 || unavailableRooms.value.length > 0
+  // A failed check offers nothing: an unbadged list would read as "all free".
+  if (availabilityError.value) return []
+
+  const roomsWithAvailability = hasAvailability.value
     ? [...availableRooms.value, ...unavailableRooms.value]
     : rooms.value || []
 
@@ -448,7 +457,10 @@ watch(() => state.externalVenueId, (newVal) => {
               >
                 <template #description>
                   <div class="flex items-center justify-between">
-                    <span>Choose an internal room</span>
+                    <span v-if="availabilityError" class="text-amber-600 dark:text-amber-400">
+                      Could not check which rooms are free, so none can be offered. Try again.
+                    </span>
+                    <span v-else>Choose an internal room</span>
                     <div class="flex items-center gap-2 text-xs">
                       <span v-if="totalAvailable > 0" class="text-green-600 dark:text-green-400">{{ totalAvailable }} available</span>
                       <span v-if="totalUnavailable > 0" class="text-amber-600 dark:text-amber-400">{{ totalUnavailable }} unavailable</span>

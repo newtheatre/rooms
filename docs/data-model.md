@@ -27,10 +27,10 @@ session and is read from there.
 | --- | --- |
 | `id` | Canonical auth-service id. Never minted locally. |
 | `email` | Unique. Case-sensitive, which is why the migration had to fold case-duplicates. Two auth-service ids can hold one address before a merge, so `ensureLocalUser` mirrors the later one under a placeholder rather than failing ([ADR-0004](decisions/0004-an-email-collision-must-not-break-every-request.md)). |
-| `is_rooms_admin` | **A cache, not an authority.** Refreshed from the session on each request and used only to decide who receives admin notification fan-out; a cron has no session to read roles from. Never gate access on it. |
+| `is_rooms_admin` | **A cache, not an authority, and it does not lapse.** Refreshed from the session, but only while that person keeps making authenticated requests, so a grant that expired at handover stays set here for good. The fan-out asks stage-door who holds the role and uses this column only when stage-door cannot be reached ([ADR-0009](decisions/0009-admin-fan-out-asks-stage-door-who-holds-the-role.md)). Never gate access on it. |
 | `notification_channels` | JSON array, e.g. `["EMAIL", "PUSH"]`. Unparseable values fall back to `["EMAIL"]`. |
 | `notification_preferences` | JSON array, e.g. `["BOOKING_UPDATES"]`. Unparseable values fall back to `["BOOKING_UPDATES"]`. |
-| `anonymised_at` | Set by the erasure hook, and by the merge hook on the losing id. While it is non-null the row is never written back over, whichever caller asks. An erased id always keeps a row, because the column can only hold a write off while something carries it ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). `server/utils/mirrorUser.ts` is the one write path. |
+| `anonymised_at` | Set by the erasure hook, and by the merge hook on the losing id. While it is non-null the row is never written back over, whichever caller asks. An erased id always keeps a row, because the column can only hold a write off while something carries it ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). `server/utils/mirrorUser.ts` is the one write path for the identity columns; `PUT /api/account/preferences` writes the two notification columns and carries the same `IS NULL` predicate, answering **409** when it matches nothing. |
 
 Account-security email ignores both notification columns.
 
@@ -119,6 +119,11 @@ request holds its slot, so two people cannot both be told yes.
 a booking ending exactly when another starts is not a conflict. `allowConflicts` is the deliberate
 admin override for double-booking.
 
+The rule is asserted twice: once as a `SELECT`, which is what produces the 409 and its list of
+clashing bookings, and again as a `NOT EXISTS` predicate on the `UPDATE` itself, because D1 has no
+interactive transaction and a `SELECT` on its own cannot hold the slot between the check and the
+write ([ADR-0008](decisions/0008-the-occupancy-check-is-re-asserted-in-the-write.md)).
+
 **A window must end after it starts, and the write path is what enforces it.** There is no `CHECK`
 on the columns, because SQLite has no `ALTER COLUMN` and adding one means rebuilding the table.
 `planBookingChange` refuses any patch that touches either end and leaves `end_time` at or before
@@ -136,6 +141,16 @@ Each one needs its window corrected or the booking cancelling, by hand.
 
 `(start_time, end_time)` and `(room_id, start_time, end_time)` back the availability queries;
 `(parent_booking_id)` backs the recurring-series lookups.
+
+`(user_id, start_time)` backs every member-facing read: `GET /api/bookings/stats` counts four
+times over `user_id`, `GET /api/bookings` scopes a non-admin to their own rows, `/requests` walks
+every page of that, and the export, anonymise, merge and last-activity hooks all filter the same
+column. `(external_venue_id, start_time, end_time)` backs `checkVenueAvailability`, which is the
+occupancy gate for every external-venue assignment and is the mirror of the room one.
+
+**SQLite creates no index for a foreign key.** Both columns are foreign keys and both were
+unindexed, so those reads were full table scans; bookings are only ever added, and D1 bills by rows
+read, so that got worse every term and never better.
 
 ## recurring_patterns
 
@@ -160,6 +175,10 @@ every later occurrence. `DELETE /api/bookings/:id` promotes the next occurrence 
 before deleting the old one, so the default scope removes exactly one row
 ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). `?scope=series` is the
 way to remove all of them, and it relies on the cascade deliberately.
+
+The promotion is three statements and the delete is a fourth, and all four go in one `db.batch`.
+Half a promotion splits one series into two, and no later `scope=series` delete would then clear
+both halves.
 
 `occurrence_number` is not renumbered on promotion: it records which occurrence of the original
 pattern a row was, which stays true.

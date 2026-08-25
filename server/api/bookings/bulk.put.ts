@@ -3,11 +3,13 @@
  * so five moved bookings send one email.
  */
 import { db, schema } from '@nuxthub/db'
-import { eq, inArray } from 'drizzle-orm'
+import { inArray } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { notifyBulkBookingUpdates, bookingStatusMessage } from '~~/server/utils/notifications'
 import { z } from 'zod'
-import { planBookingChange } from '~~/server/utils/bookingWrites'
+import type { BookingPatch } from '~~/server/utils/bookingWrites'
+import { planBookingChange, refuseBlockedBookingWrite } from '~~/server/utils/bookingWrites'
+import type { Booking } from '~~/server/db/schema/booking'
 import { updateBookingSchema } from '~~/server/utils/validation'
 
 // The canonical schema, not a copy: a local one silently lost the rule that a
@@ -121,6 +123,7 @@ export default defineEventHandler(async (event) => {
   // Process all updates
   const updatedBookings = []
   const planned: BatchItem<'sqlite'>[] = []
+  const attempted: Array<{ target: Booking, patch: BookingPatch }> = []
   const changedIds: number[] = []
   const statusChangedIds = new Set<number>()
   const pending: Array<{ userId: string, booking: BookingWithRelations, message: string }> = []
@@ -137,15 +140,18 @@ export default defineEventHandler(async (event) => {
     // Planned, not written: a conflict on the tenth booking must not leave the
     // first nine changed and every notification unsent.
     const { startTime, endTime, allowConflicts, ...rest } = data
-    const changes = await planBookingChange(existingBooking, {
+    const patch: BookingPatch = {
       ...rest,
       ...(startTime && { startTime: new Date(startTime) }),
       ...(endTime && { endTime: new Date(endTime) })
-    }, { allowConflicts })
+    }
+
+    const { changes, where } = await planBookingChange(existingBooking, patch, { allowConflicts })
 
     planned.push(
-      db.update(schema.bookings).set(changes).where(eq(schema.bookings.id, existingBooking.id))
+      db.update(schema.bookings).set(changes).where(where).returning({ id: schema.bookings.id })
     )
+    attempted.push({ target: existingBooking, patch })
     changedIds.push(update.id)
 
     if (statusChanged) statusChangedIds.add(update.id)
@@ -153,7 +159,15 @@ export default defineEventHandler(async (event) => {
 
   // Every row or none: the whole set is planned before any of it is written.
   if (planned.length) {
-    await db.batch(planned as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]])
+    const results = await db.batch(
+      planned as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]
+    ) as Array<Array<{ id: number }>>
+
+    // No rows back means the occupancy re-check refused that statement.
+    const blocked = attempted.findIndex((_, index) => !results[index]?.length)
+    if (blocked !== -1) {
+      await refuseBlockedBookingWrite(attempted[blocked]!.target, attempted[blocked]!.patch)
+    }
   }
 
   for (const id of changedIds) {

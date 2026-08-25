@@ -7,7 +7,8 @@ import { eq } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { notifyBookingUpdate, notifyAdmins, bookingStatusMessage, formatBookingDateTime } from '~~/server/utils/notifications'
 import type { BookingPatch } from '~~/server/utils/bookingWrites'
-import { applyBookingChange, planBookingChange } from '~~/server/utils/bookingWrites'
+import { applyBookingChange, planBookingChange, refuseBlockedBookingWrite } from '~~/server/utils/bookingWrites'
+import type { Booking } from '~~/server/db/schema/booking'
 import { isOpen, isSeriesMember, seriesBookings, seriesParentId } from '~~/server/utils/bookingSeries'
 
 defineRouteMeta({
@@ -139,20 +140,30 @@ export default defineEventHandler(async (event) => {
     // Planned first, then written together: a conflict on the seventh
     // occurrence must not leave the first six confirmed and unnotified.
     const planned: BatchItem<'sqlite'>[] = []
+    const attempted: Array<{ target: Booking, patch: BookingPatch }> = []
     for (const target of targets) {
       // Moving a whole series to one instant would stack every occurrence.
       const perTarget = target.id === existingBooking.id
         ? patch
         : { ...patch, startTime: undefined, endTime: undefined }
 
-      const changes = await planBookingChange(target, perTarget, { allowConflicts })
+      const { changes, where } = await planBookingChange(target, perTarget, { allowConflicts })
       planned.push(
-        db.update(schema.bookings).set(changes).where(eq(schema.bookings.id, target.id))
+        db.update(schema.bookings).set(changes).where(where).returning({ id: schema.bookings.id })
       )
+      attempted.push({ target, patch: perTarget })
     }
 
     if (planned.length) {
-      await db.batch(planned as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]])
+      const results = await db.batch(
+        planned as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]
+      ) as Array<Array<{ id: number }>>
+
+      // No rows back means the occupancy re-check refused that statement.
+      const blocked = attempted.findIndex((_, index) => !results[index]?.length)
+      if (blocked !== -1) {
+        await refuseBlockedBookingWrite(attempted[blocked]!.target, attempted[blocked]!.patch)
+      }
     }
 
     const updatedBooking = await findBooking(id)
@@ -162,7 +173,8 @@ export default defineEventHandler(async (event) => {
 
     // Send notification if status changed
     if (statusChanged && updatedBooking.userId) {
-      const message = bookingStatusMessage(updatedBooking)
+      // Every open occurrence moved, so the one email has to say so.
+      const message = bookingStatusMessage(updatedBooking, targets.length)
 
       const fullUser = await loadUserForNotify(updatedBooking.userId)
 
@@ -203,11 +215,15 @@ export default defineEventHandler(async (event) => {
     }
 
     const { startTime, endTime, ...rest } = data
-    await applyBookingChange(existingBooking, {
-      ...rest,
-      ...(startTime && { startTime: new Date(startTime) }),
-      ...(endTime && { endTime: new Date(endTime) })
-    })
+
+    // Narrowed as well as validated: a cancellation writes the status alone.
+    await applyBookingChange(existingBooking, isCancellation
+      ? { status: 'CANCELLED' }
+      : {
+          ...rest,
+          ...(startTime && { startTime: new Date(startTime) }),
+          ...(endTime && { endTime: new Date(endTime) })
+        })
 
     const updatedBooking = await findBooking(id)
     if (!updatedBooking) {

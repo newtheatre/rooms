@@ -6,9 +6,8 @@
 
 import type { User } from '~~/server/db/schema/user'
 import type { Booking } from '~~/server/db/schema/booking'
-import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
 import { LONDON } from './london'
+import { adminRecipients } from './adminRecipients'
 import { getResend } from './resend'
 
 export type NotificationChannel = 'EMAIL' | 'PUSH'
@@ -68,9 +67,18 @@ const STATUS_MESSAGES: Record<Booking['status'], (b: BookingWithSpace, when: str
   CANCELLED: (b, when) => `Your booking "${b.eventTitle}" (${when}) has been cancelled.`
 }
 
-/** The one wording for a status change, wherever the change was made. */
-export function bookingStatusMessage(booking: BookingWithSpace): string {
-  return STATUS_MESSAGES[booking.status](booking, formatBookingDateTime(booking))
+/** What the change covered: one occurrence, or a whole recurring series. */
+function coverage(booking: Booking, occurrences: number): string {
+  const when = formatBookingDateTime(booking)
+  return occurrences > 1 ? `all ${occurrences} occurrences, from ${when}` : when
+}
+
+/**
+ * The one wording for a status change, wherever the change was made.
+ * `occurrences` is how many rows the change covered, not how long the series is.
+ */
+export function bookingStatusMessage(booking: BookingWithSpace, occurrences = 1): string {
+  return STATUS_MESSAGES[booking.status](booking, coverage(booking, occurrences))
 }
 
 /** Stored as a JSON string; unparseable values fall back to email only. */
@@ -194,11 +202,7 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
 
 /** Fans out to admins who opted in, as one bcc'd email rather than one each. */
 export async function notifyAdmins(subject: string, content: string): Promise<void> {
-  const admins = await db
-    .select()
-    .from(schema.users)
-    .where(eq(schema.users.isRoomsAdmin, true))
-
+  const admins = await adminRecipients()
   const optedIn = admins.filter(admin => shouldNotify(admin, 'ADMIN_NEW_BOOKINGS'))
 
   await sendBatchEmail(optedIn, subject, content)

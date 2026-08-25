@@ -48,7 +48,7 @@ reaching the ORM and surfacing as a 500.
 | `GET /api/bookings/stats` | session | Counts for the caller's own bookings. |
 | `GET /api/bookings/:id` | owner or admin | One booking with its relations. |
 | `PUT /api/bookings/:id` | owner or admin | Field set depends on role. See below. `?scope=series` applies an admin's change to every unfinished occurrence. |
-| `DELETE /api/bookings/:id` | owner or admin | Deletes and notifies the owner. `?scope=series` removes the whole recurring series; the default `occurrence` removes one and promotes the next to head it ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). |
+| `DELETE /api/bookings/:id` | owner or admin | Deletes, then notifies the owner. `?scope=series` removes the whole recurring series; the default `occurrence` removes one and promotes the next to head it, in a single batch with the delete ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). |
 | `PUT /api/bookings/bulk` | admin | `{ updates: [{ id, data }] }`, where `data` is the admin shape below. Same schema and same occupancy check as the single-row route. |
 | `DELETE /api/bookings/bulk` | admin | `{ bookingIds: number[] }`, and `?scope=` as on the single route: the default `occurrence` removes exactly the listed rows, promoting a successor for any that head a series, and `series` removes every occurrence of each series they belong to ([ADR-0007](decisions/0007-bulk-deletion-takes-the-same-scope.md)). `deleted` counts the rows that went, which under `series` is more than were listed. |
 
@@ -69,6 +69,16 @@ email rather than five.
 
 Admins are notified of anything left `PENDING`, as one batched email rather than one per admin.
 
+Who counts as an admin for that fan-out comes from stage-door's `GET /api/role-holders`, cached for
+ten minutes per isolate, not from the mirror's `is_rooms_admin` column, which never lapses when a
+committee-year grant expires. The column is the fallback for when stage-door cannot be reached
+([ADR-0009](decisions/0009-admin-fan-out-asks-stage-door-who-holds-the-role.md)).
+
+A recurring request writes its first occurrence, then the pattern and every later occurrence in one
+batch. The first occurrence has to go first, because the rest hang off its id; if the batch then
+fails it is deleted again, because a row nobody has been told about would otherwise sit there
+holding its slot and making the admin's retry clash with a booking they cannot see.
+
 ### `PUT /api/bookings/:id`
 
 The two roles are validated against different schemas.
@@ -86,13 +96,16 @@ ends it carries: a patch that would leave a booking ending at or before it start
 not a row that occupies nothing. See [data-model.md](data-model.md#occupancy).
 
 An owner may cancel a confirmed slot but not edit one: giving the room back is theirs to
-decide, moving it is not. Every owner cancellation alerts the admins who have opted in, and
-names the external venue when there is one, because that booking was arranged by hand and
-someone has to unarrange it.
+decide, moving it is not. A body carrying `status` alongside any other field is a **400**, so a
+cancellation cannot smuggle a new window or title past the `PENDING`-only guard, and the route
+writes the status on its own whatever else the body held. Every owner cancellation alerts the
+admins who have opted in, and names the external venue when there is one, because that booking was
+arranged by hand and someone has to unarrange it.
 
-A status change made by an admin notifies the owner, subject to their preferences. Under
-`?scope=series` that notification names the occurrence in the URL only, even though every open
-occurrence was changed. See [README.md](../README.md) §Known gaps.
+A status change made by an admin notifies the owner, subject to their preferences. It is one
+email however many rows moved, and under `?scope=series` it names the number of occurrences the
+change covered alongside the first of them, rather than reading as though a single date had
+changed.
 
 `?scope=series` covers every occurrence that is not `REJECTED` or `CANCELLED`, whatever else it
 holds: a confirmed occurrence is moved by a series-wide assignment like any other. The admin page
@@ -106,6 +119,13 @@ Every write goes through `applyBookingChange` in `server/utils/bookingWrites.ts`
 re-checks occupancy for the booking as it will be *after* the patch. A change that would
 double-book returns **409** with the clashing bookings in `data.conflicts`. `allowConflicts: true`
 is the deliberate admin override and is the only way to write a clash.
+
+The `UPDATE` carries the occupancy rule as well, so a clash that lands between the check and the
+write matches no rows instead of double-booking the room
+([ADR-0008](decisions/0008-the-occupancy-check-is-re-asserted-in-the-write.md)). Under
+`?scope=series`, and on the bulk route, the occurrences ahead of a blocked one have already been
+written when that 409 comes back: D1 treats a statement matching no rows as a success, so the
+batch commits. Refresh the list rather than assuming nothing landed.
 
 A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never blocked.
 
@@ -143,7 +163,7 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 | Route | Auth | Notes |
 | --- | --- | --- |
 | `GET /api/account/preferences` | session | Channels and types, parsed from their JSON columns. |
-| `PUT /api/account/preferences` | session | Account-security mail ignores both. |
+| `PUT /api/account/preferences` | session | Account-security mail ignores both. **409** once the account has been erased: the sealed cookie stays readable afterwards, and an erased row is never written back over. |
 | `POST /api/notifications/subscribe` | session | Registers a Web Push subscription, keyed on the unique `endpoint`. |
 | `POST /api/notifications/unsubscribe` | session | By endpoint; the caller may only remove their own. |
 
@@ -213,3 +233,8 @@ Not a plain liveness probe. It compares the migration journal against production
 a Worker deployed ahead of its schema is the failure stage-door ADR-0021 exists for.
 
 An uptime monitor pointed at this will alarm on a missed migration, which is the intent.
+
+The public allowlist in `server/middleware/auth.ts` is matched against the path with the query
+string stripped, so a monitor that cache-busts with `?cb=123` still reaches the check rather than
+being answered 401 by the session guard. A monitor configured to alarm only on 5xx would otherwise
+read that 401 as healthy and never see the 503.
