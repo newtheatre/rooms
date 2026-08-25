@@ -30,7 +30,7 @@ session and is read from there.
 | `is_rooms_admin` | **A cache, not an authority.** Refreshed from the session on each request and used only to decide who receives admin notification fan-out; a cron has no session to read roles from. Never gate access on it. |
 | `notification_channels` | JSON array, e.g. `["EMAIL", "PUSH"]`. Unparseable values fall back to `["EMAIL"]`. |
 | `notification_preferences` | JSON array, e.g. `["BOOKING_UPDATES"]`. Unparseable values fall back to `["BOOKING_UPDATES"]`. |
-| `anonymised_at` | Set by the erasure hook, and by the merge hook on the losing id. While it is non-null the row is never written back over, whichever caller asks. An erased id always keeps a row, because the column can only hold a write off while something carries it ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). `server/utils/mirrorUser.ts` is the one write path. |
+| `anonymised_at` | Set by the erasure hook, and by the merge hook on the losing id. While it is non-null the row is never written back over, whichever caller asks. An erased id always keeps a row, because the column can only hold a write off while something carries it ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). `server/utils/mirrorUser.ts` is the one write path for the identity columns; `PUT /api/account/preferences` writes the two notification columns and carries the same `IS NULL` predicate, answering **409** when it matches nothing. |
 
 Account-security email ignores both notification columns.
 

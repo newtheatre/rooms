@@ -143,7 +143,7 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 | Route | Auth | Notes |
 | --- | --- | --- |
 | `GET /api/account/preferences` | session | Channels and types, parsed from their JSON columns. |
-| `PUT /api/account/preferences` | session | Account-security mail ignores both. |
+| `PUT /api/account/preferences` | session | Account-security mail ignores both. **409** once the account has been erased: the sealed cookie stays readable afterwards, and an erased row is never written back over. |
 | `POST /api/notifications/subscribe` | session | Registers a Web Push subscription, keyed on the unique `endpoint`. |
 | `POST /api/notifications/unsubscribe` | session | By endpoint; the caller may only remove their own. |
 
