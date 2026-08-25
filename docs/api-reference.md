@@ -148,9 +148,9 @@ stage-door retries them until they succeed.
 | Route | Effect |
 | --- | --- |
 | `POST /api/_hooks/auth/export` | `{ userId }` → this app's personal data: the mirror row and their bookings, including `notes` and `rejectionReason` |
-| `POST /api/_hooks/auth/anonymise` | Scrubs the mirror row and every free-text field on their bookings. Bookings survive as anonymous rows. Scrub list below. |
+| `POST /api/_hooks/auth/anonymise` | Scrubs the mirror row and every free-text field on their bookings. Bookings survive as anonymous rows. Writes the scrubbed row even when nothing was mirrored here, so a sealed cookie cannot mirror the subject back afterwards ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). Scrub list below. |
 | `POST /api/_hooks/auth/last-activity` | `{ userIds }` → latest booking activity per user. Chunks its `in` clause at 90 ids, because D1 caps bound parameters at 100. |
-| `POST /api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → re-points bookings and push subscriptions onto the winner, deletes the losing mirror row. Each statement binds two parameters however many rows move, so no chunking is needed here. The winner's own preferences are untouched. (stage-door ADR-0015) |
+| `POST /api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → re-points bookings and push subscriptions onto the winner, then scrubs the losing mirror row to the same tombstone erasure leaves. It is not deleted: the loser's cookie stays readable and would insert the row straight back ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). Each statement binds two parameters however many rows move, so no chunking is needed here. The winner's own preferences are untouched. (stage-door ADR-0015) |
 | `GET /api/_hooks/auth/manifest` | This app's declaration: namespace, the roles it reads, and the permissions each carries. The auth service polls it and turns the roles into definitions, so adding a role here is what makes it grantable (stage-door ADR-0017). |
 
 ### What erasure scrubs
@@ -168,7 +168,12 @@ notes and is returned by the export hook.
 
 `anonymised_at` is what stops the scrub being undone. A sealed session stays readable after
 erasure, and every authenticated request upserts the mirror; the upsert skips a row carrying that
-column, so the erased details are not written back ([ADR-0005](decisions/0005-an-erased-user-is-never-written-back-over.md)).
+column, so the erased details are not written back.
+
+The row is written whether or not one was there, because a column can only hold a write off while
+there is a row to carry it. The merge hook leaves the same tombstone rather than deleting the
+losing row, for the same reason
+([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)).
 
 The manifest is `shared/utils/appManifest.ts`, served verbatim. `rooms:ADMIN` is still the only role
 this app owns, but the four things it actually gates are now named rather than inferred:

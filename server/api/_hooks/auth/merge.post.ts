@@ -1,6 +1,7 @@
 import { db, schema } from '@nuxthub/db'
 import { count, eq } from 'drizzle-orm'
 import * as z from 'zod'
+import { tombstoneMirroredUser } from '~~/server/utils/mirrorUser'
 
 const bodySchema = z.object({
   fromUserId: z.string().min(1),
@@ -61,8 +62,9 @@ export default defineEventHandler(async (event) => {
     db.update(schema.pushSubscriptions)
       .set({ userId: toUserId })
       .where(eq(schema.pushSubscriptions.userId, fromUserId)),
-    db.delete(schema.users)
-      .where(eq(schema.users.id, fromUserId))
+    // Scrubbed rather than deleted: the loser's cookie stays readable and
+    // would insert the row it just lost (ADR-0006).
+    tombstoneMirroredUser(fromUserId)
   ])
 
   return { ok: true, notMirrored: false, counts }
