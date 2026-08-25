@@ -90,7 +90,13 @@ decide, moving it is not. Every owner cancellation alerts the admins who have op
 names the external venue when there is one, because that booking was arranged by hand and
 someone has to unarrange it.
 
-A status change made by an admin notifies the owner, subject to their preferences.
+A status change made by an admin notifies the owner, subject to their preferences. Under
+`?scope=series` that notification names the occurrence in the URL only, even though every open
+occurrence was changed. See [README.md](../README.md) §Known gaps.
+
+`?scope=series` covers every occurrence that is not `REJECTED` or `CANCELLED`, whatever else it
+holds: a confirmed occurrence is moved by a series-wide assignment like any other. The admin page
+previews exactly that set before asking, from the same predicate (`shared/utils/bookingStatus.ts`).
 
 `REJECTED` and `CANCELLED` are terminal. Any change back out of them is refused with **409**,
 whoever asks: a released slot may have been given to someone else, so the booking has to be

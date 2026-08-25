@@ -43,33 +43,21 @@ const actionLabel = computed(() => {
   }
 })
 
+// The same rule the server applies, not a narrower one: it resolves the series
+// itself and would change occurrences this list left out.
 const eligibleBookings = computed(() => {
-  if (!props.relatedBookings) return []
+  if (!props.action || !props.relatedBookings) return []
 
-  switch (props.action) {
-    case 'assignRoom':
-      return props.relatedBookings.filter(b =>
-        b.status === 'PENDING' || b.status === 'AWAITING_EXTERNAL'
-      )
-    case 'assignVenue':
-      return props.relatedBookings.filter(b =>
-        b.status === 'AWAITING_EXTERNAL'
-      )
-    case 'initiateExternal':
-      return props.relatedBookings.filter(b =>
-        b.status === 'PENDING'
-      )
-    case 'reject':
-      return props.relatedBookings.filter(b =>
-        b.status === 'PENDING' || b.status === 'AWAITING_EXTERNAL'
-      )
-    case 'delete':
-      // All bookings can be deleted
-      return props.relatedBookings
-    default:
-      return []
-  }
+  // Deleting a series takes every occurrence; every other action stops at the
+  // ones still holding a slot.
+  if (props.action === 'delete') return props.relatedBookings
+
+  return props.relatedBookings.filter(b => isOpenStatus(b.status))
 })
+
+const seriesEffect = computed(() => props.action === 'delete'
+  ? 'Every occurrence in this series will be deleted, whatever its status.'
+  : 'This booking and every other occurrence in the series that is not rejected or cancelled will be updated.')
 
 function handleConfirm() {
   emit('confirm', applyToSeries.value, eligibleBookings.value)
@@ -109,7 +97,7 @@ function handleCancel() {
         <div v-if="eligibleBookings.length > 0" class="space-y-3">
           <UCheckbox
             v-model="applyToSeries"
-            label="Apply to all eligible bookings in this series"
+            label="Apply to every affected booking in this series"
           />
 
           <UAlert
@@ -118,7 +106,7 @@ function handleCancel() {
             color="success"
             variant="subtle"
             :title="`Will affect ${eligibleBookings.length + 1} booking(s)`"
-            :description="`The action will be applied to this booking plus ${eligibleBookings.length} other eligible booking(s) in the series.`"
+            :description="seriesEffect"
           />
 
           <UAlert
@@ -132,7 +120,7 @@ function handleCancel() {
 
           <div v-if="applyToSeries && eligibleBookings.length > 0" class="mt-3">
             <p class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Eligible bookings in series:
+              Other occurrences this will affect:
             </p>
             <div class="max-h-40 overflow-y-auto space-y-1">
               <div
@@ -152,8 +140,8 @@ function handleCancel() {
           icon="i-lucide-info"
           color="neutral"
           variant="subtle"
-          title="No other eligible bookings"
-          description="No other bookings in this series are eligible for this action."
+          title="No other bookings will be affected"
+          description="No other occurrence in this series is affected by this action."
         />
       </div>
     </template>
