@@ -286,6 +286,11 @@ export const venueListQuerySchema = z.object({
   building: z.string().max(255).optional()
 })
 
+/** The widest window an availability check will answer for (ADR-0011). */
+export const AVAILABILITY_MAX_SPAN_DAYS = 31
+
+const AVAILABILITY_MAX_SPAN_MS = AVAILABILITY_MAX_SPAN_DAYS * 24 * 60 * 60 * 1000
+
 export const availableRoomsQuerySchema = z.object({
   startTime: z.iso.datetime('Invalid start time'),
   endTime: z.iso.datetime('Invalid end time'),
@@ -295,6 +300,12 @@ export const availableRoomsQuerySchema = z.object({
 }).refine(
   data => new Date(data.endTime) > new Date(data.startTime),
   { message: 'End time must be after start time', path: ['endTime'] }
+).refine(
+  data => new Date(data.endTime).getTime() - new Date(data.startTime).getTime() <= AVAILABILITY_MAX_SPAN_MS,
+  {
+    message: `The window must not span more than ${AVAILABILITY_MAX_SPAN_DAYS} days`,
+    path: ['endTime']
+  }
 )
 
 export const bookingUpdateQuerySchema = z.object({

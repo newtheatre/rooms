@@ -144,7 +144,22 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 | `GET /api/rooms/:id` | admin | |
 | `PUT /api/rooms/:id` | admin | Partial body, at least one field. Omitting `isActive` leaves it alone rather than reactivating the room. |
 | `DELETE /api/rooms/:id` | admin | Deactivates by default. `?permanent=true` hard-deletes, and is refused once the room has bookings. |
-| `GET /api/rooms/available` | session | Required: `startTime`, `endTime`, both ISO 8601 and validated. `excludeBookingId` omits a booking's own rows so editing it does not conflict with itself. |
+| `GET /api/rooms/available` | session | Required: `startTime`, `endTime`, both ISO 8601 and validated. `excludeBookingId` omits a booking's own rows so editing it does not conflict with itself. Capped, see below. |
+
+### `GET /api/rooms/available`
+
+The window is capped twice, and both are **400**s
+([ADR-0011](decisions/0011-the-availability-window-is-capped.md)):
+
+- **31 days** is the widest span the schema accepts. The booking forms build both ends from one
+  event date, so no first-party client comes near it.
+- **1000** is the most clashing bookings the sweep will read. Over that the request is refused
+  rather than answered from a truncated set, because the available/unavailable split is derived
+  from those rows: a dropped clash would offer an occupied room to the next member.
+
+The second cap is passed only by this route's sweep. The occupancy gate on the write path shares
+the same query and reads every clash, uncapped, because a gate that sees part of the picture is
+worse than no gate.
 
 ## Venues
 

@@ -8,6 +8,9 @@ import { and, asc, eq, gt, isNotNull, lt, ne, inArray } from 'drizzle-orm'
 
 const OCCUPYING_STATUSES = ['CONFIRMED', 'PENDING', 'AWAITING_EXTERNAL'] as const
 
+/** The most clashing bookings the availability sweep will read (ADR-0011). */
+const AVAILABILITY_ROW_CAP = 1000
+
 type Booking = typeof schema.bookings.$inferSelect
 type Room = typeof schema.rooms.$inferSelect
 
@@ -16,14 +19,18 @@ export type Conflict = Booking & {
   user: { id: string, name: string, email: string } | null
 }
 
-/** Shared by both space kinds; only the space predicate differs. */
+/**
+ * Shared by both space kinds; only the space predicate differs.
+ * `limit` is for the sweep alone: a gate must never see a truncated set.
+ */
 async function findConflicts(
   spacePredicate: ReturnType<typeof eq>,
   startTime: Date,
   endTime: Date,
-  excludeBookingId?: number
+  excludeBookingId?: number,
+  limit?: number
 ): Promise<Conflict[]> {
-  const rows = await db
+  const query = db
     .select({ booking: schema.bookings, user: schema.users })
     .from(schema.bookings)
     .leftJoin(schema.users, eq(schema.bookings.userId, schema.users.id))
@@ -35,6 +42,8 @@ async function findConflicts(
       gt(schema.bookings.endTime, startTime)
     ))
     .orderBy(asc(schema.bookings.startTime))
+
+  const rows = await (limit === undefined ? query : query.limit(limit))
 
   return rows.map(({ booking, user }) => ({
     ...booking,
@@ -100,9 +109,20 @@ export async function getAvailableRooms(
       isNotNull(schema.bookings.roomId),
       startTime,
       endTime,
-      options?.excludeBookingId
+      options?.excludeBookingId,
+      AVAILABILITY_ROW_CAP + 1
     )
   ])
+
+  // Refused rather than truncated: a dropped clash would offer an occupied
+  // room to the next member, which is the whole point of the check (ADR-0011).
+  if (occupied.length > AVAILABILITY_ROW_CAP) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Window covers too many bookings',
+      message: 'That window covers too many bookings to check at once. Ask for a shorter one.'
+    })
+  }
 
   const conflictsByRoom = new Map<number, Conflict[]>()
   for (const conflict of occupied) {

@@ -10,7 +10,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Rooms'],
     summary: 'Check room availability',
-    description: 'Get available and unavailable rooms for a time range',
+    description: 'Get available and unavailable rooms for a time range of at most 31 days',
     security: [{ sessionAuth: [] }],
     parameters: [
       {
@@ -18,14 +18,14 @@ defineRouteMeta({
         name: 'startTime',
         required: true,
         schema: { type: 'string', format: 'date-time' },
-        description: 'Start time of the booking'
+        description: 'Start of the window'
       },
       {
         in: 'query',
         name: 'endTime',
         required: true,
         schema: { type: 'string', format: 'date-time' },
-        description: 'End time of the booking'
+        description: 'End of the window, after startTime and at most 31 days later'
       },
       {
         in: 'query',
@@ -100,7 +100,7 @@ defineRouteMeta({
           }
         }
       },
-      400: { description: 'Invalid parameters' },
+      400: { description: 'Invalid parameters, a window over 31 days, or a window covering more than 1000 clashing bookings' },
       401: { description: 'Not authenticated' }
     }
   }
