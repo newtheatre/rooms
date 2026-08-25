@@ -142,6 +142,16 @@ Each one needs its window corrected or the booking cancelling, by hand.
 `(start_time, end_time)` and `(room_id, start_time, end_time)` back the availability queries;
 `(parent_booking_id)` backs the recurring-series lookups.
 
+`(user_id, start_time)` backs every member-facing read: `GET /api/bookings/stats` counts four
+times over `user_id`, `GET /api/bookings` scopes a non-admin to their own rows, `/requests` walks
+every page of that, and the export, anonymise, merge and last-activity hooks all filter the same
+column. `(external_venue_id, start_time, end_time)` backs `checkVenueAvailability`, which is the
+occupancy gate for every external-venue assignment and is the mirror of the room one.
+
+**SQLite creates no index for a foreign key.** Both columns are foreign keys and both were
+unindexed, so those reads were full table scans; bookings are only ever added, and D1 bills by rows
+read, so that got worse every term and never better.
+
 ## recurring_patterns
 
 Attached to the **parent** (first) booking of a series, one-to-one.
