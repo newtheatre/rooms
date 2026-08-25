@@ -68,6 +68,11 @@ email rather than five.
 | `status` | admin | Override the initial status |
 
 Admins are notified of anything left `PENDING`, as one batched email rather than one per admin.
+An admin receives it only if they hold the `ADMIN_NEW_BOOKINGS` preference **and** take the `EMAIL`
+channel. Turning the Email switch off on `/settings/notifications` stops the fan-out as well as
+their own booking mail, and push delivers nothing, so that is silence for them; when it leaves
+nobody to tell at all, the fan-out logs a warning
+([ADR-0010](decisions/0010-admin-fan-out-honours-the-email-channel.md)).
 
 Who counts as an admin for that fan-out comes from stage-door's `GET /api/role-holders`, cached for
 ten minutes per isolate, not from the mirror's `is_rooms_admin` column, which never lapses when a
@@ -99,7 +104,8 @@ An owner may cancel a confirmed slot but not edit one: giving the room back is t
 decide, moving it is not. A body carrying `status` alongside any other field is a **400**, so a
 cancellation cannot smuggle a new window or title past the `PENDING`-only guard, and the route
 writes the status on its own whatever else the body held. Every owner cancellation alerts the
-admins who have opted in, and names the external venue when there is one, because that booking was
+admins who have opted in, on the same two columns as the fan-out above, and names the external
+venue when there is one, because that booking was
 arranged by hand and someone has to unarrange it.
 
 A status change made by an admin notifies the owner, subject to their preferences. It is one

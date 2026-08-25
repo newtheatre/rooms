@@ -200,10 +200,19 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
   }
 }
 
-/** Fans out to admins who opted in, as one bcc'd email rather than one each. */
+/**
+ * Fans out to admins who want the type and take email, as one bcc'd message.
+ * An admin with email off gets nothing, since PUSH delivers nothing (ADR-0010).
+ */
 export async function notifyAdmins(subject: string, content: string): Promise<void> {
   const admins = await adminRecipients()
-  const optedIn = admins.filter(admin => shouldNotify(admin, 'ADMIN_NEW_BOOKINGS'))
+  const optedIn = admins.filter(admin =>
+    shouldNotify(admin, 'ADMIN_NEW_BOOKINGS') && getNotificationChannels(admin).includes('EMAIL')
+  )
+
+  if (admins.length && !optedIn.length) {
+    console.warn(`[notify] no admin is set to receive "${subject}" by email, so nobody was told.`)
+  }
 
   await sendBatchEmail(optedIn, subject, content)
 }
