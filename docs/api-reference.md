@@ -213,3 +213,8 @@ Not a plain liveness probe. It compares the migration journal against production
 a Worker deployed ahead of its schema is the failure stage-door ADR-0021 exists for.
 
 An uptime monitor pointed at this will alarm on a missed migration, which is the intent.
+
+The public allowlist in `server/middleware/auth.ts` is matched against the path with the query
+string stripped, so a monitor that cache-busts with `?cb=123` still reaches the check rather than
+being answered 401 by the session guard. A monitor configured to alarm only on 5xx would otherwise
+read that 401 as healthy and never see the 503.
