@@ -161,6 +161,10 @@ before deleting the old one, so the default scope removes exactly one row
 ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). `?scope=series` is the
 way to remove all of them, and it relies on the cascade deliberately.
 
+The promotion is three statements and the delete is a fourth, and all four go in one `db.batch`.
+Half a promotion splits one series into two, and no later `scope=series` delete would then clear
+both halves.
+
 `occurrence_number` is not renumbered on promotion: it records which occurrence of the original
 pattern a row was, which stays true.
 

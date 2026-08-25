@@ -4,6 +4,8 @@
  */
 
 import { db, schema } from '@nuxthub/db'
+import { eq } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 
 import type { RecurringPattern, Booking } from '~~/server/db/schema/booking'
 import { checkRoomAvailability, checkVenueAvailability } from './availability'
@@ -285,45 +287,55 @@ export async function createRecurringBookings(
     })
     .returning())
 
-  // Create the recurring pattern
-  const recurringPattern = requireRow(await db
-    .insert(schema.recurringPatterns)
-    .values({
-      bookingId: parentBooking.id,
-      frequency: pattern.frequency,
-      interval: pattern.interval || 1,
-      daysOfWeek: pattern.daysOfWeek ? JSON.stringify(pattern.daysOfWeek) : null,
-      maxOccurrences: pattern.maxOccurrences,
-      endDate: pattern.endDate
-    })
-    .returning())
-
   // One statement per occurrence, so each binds a fixed parameter count
   // (CLAUDE.md 10), but sent in a single round-trip rather than N of them.
-  const inserts = occurrences.slice(1).map(occurrence => db
-    .insert(schema.bookings)
-    .values({
-      userId: parentBookingData.userId || null,
-      eventTitle: parentBookingData.eventTitle,
-      numberOfAttendees: parentBookingData.numberOfAttendees,
-      startTime: occurrence.startTime,
-      endTime: occurrence.endTime,
-      roomId: parentBookingData.roomId,
-      externalVenueId: parentBookingData.externalVenueId,
-      status: parentBookingData.status,
-      notes: parentBookingData.notes,
-      parentBookingId: parentBooking.id,
-      occurrenceNumber: occurrence.occurrenceNumber
-    })
-    .returning())
+  const writes: BatchItem<'sqlite'>[] = [
+    db
+      .insert(schema.recurringPatterns)
+      .values({
+        bookingId: parentBooking.id,
+        frequency: pattern.frequency,
+        interval: pattern.interval || 1,
+        daysOfWeek: pattern.daysOfWeek ? JSON.stringify(pattern.daysOfWeek) : null,
+        maxOccurrences: pattern.maxOccurrences,
+        endDate: pattern.endDate
+      })
+      .returning(),
 
-  const childBookings: Booking[] = inserts.length
-    ? (await db.batch(inserts as [typeof inserts[number], ...typeof inserts])).map(rows => requireRow(rows))
-    : []
+    ...occurrences.slice(1).map(occurrence => db
+      .insert(schema.bookings)
+      .values({
+        userId: parentBookingData.userId || null,
+        eventTitle: parentBookingData.eventTitle,
+        numberOfAttendees: parentBookingData.numberOfAttendees,
+        startTime: occurrence.startTime,
+        endTime: occurrence.endTime,
+        roomId: parentBookingData.roomId,
+        externalVenueId: parentBookingData.externalVenueId,
+        status: parentBookingData.status,
+        notes: parentBookingData.notes,
+        parentBookingId: parentBooking.id,
+        occurrenceNumber: occurrence.occurrenceNumber
+      })
+      .returning())
+  ]
+
+  let results: unknown[]
+  try {
+    results = await db.batch(writes as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]) as unknown[]
+  } catch (error) {
+    // The head is committed already, and it holds its slot while nobody has
+    // been told it exists, so take it back out before reporting the failure.
+    await db.delete(schema.bookings).where(eq(schema.bookings.id, parentBooking.id))
+      .catch(reason => console.error('[recurring] could not remove the orphaned series head:', reason))
+    throw error
+  }
+
+  const [patternRows, ...childRows] = results as [RecurringPattern[], ...Booking[][]]
 
   return {
     parentBooking,
-    childBookings,
-    pattern: recurringPattern
+    childBookings: childRows.map(rows => requireRow(rows)),
+    pattern: requireRow(patternRows)
   }
 }

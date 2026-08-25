@@ -4,9 +4,9 @@
  * Scoped like the single route, and notifications are grouped by user.
  */
 import { db, schema } from '@nuxthub/db'
-import { eq, inArray } from 'drizzle-orm'
+import { inArray } from 'drizzle-orm'
 import { notifyBulkBookingUpdates, formatBookingDateTime } from '~~/server/utils/notifications'
-import { promoteNextOccurrence, seriesBookingsForParents, seriesParentId } from '~~/server/utils/bookingSeries'
+import { deleteBookingWithPromotion, seriesBookingsForParents, seriesParentId } from '~~/server/utils/bookingSeries'
 import { z } from 'zod'
 
 const bulkDeleteSchema = z.object({
@@ -144,8 +144,7 @@ export default defineEventHandler(async (event) => {
     // One at a time, promoting first: an id list would cascade into every
     // later occurrence of any series head it held (ADR-0007).
     for (const booking of selected) {
-      await promoteNextOccurrence(booking.id)
-      await db.delete(schema.bookings).where(eq(schema.bookings.id, booking.id))
+      await deleteBookingWithPromotion(booking.id)
     }
   }
 

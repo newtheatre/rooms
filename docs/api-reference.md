@@ -48,7 +48,7 @@ reaching the ORM and surfacing as a 500.
 | `GET /api/bookings/stats` | session | Counts for the caller's own bookings. |
 | `GET /api/bookings/:id` | owner or admin | One booking with its relations. |
 | `PUT /api/bookings/:id` | owner or admin | Field set depends on role. See below. `?scope=series` applies an admin's change to every unfinished occurrence. |
-| `DELETE /api/bookings/:id` | owner or admin | Deletes and notifies the owner. `?scope=series` removes the whole recurring series; the default `occurrence` removes one and promotes the next to head it ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). |
+| `DELETE /api/bookings/:id` | owner or admin | Deletes, then notifies the owner. `?scope=series` removes the whole recurring series; the default `occurrence` removes one and promotes the next to head it, in a single batch with the delete ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). |
 | `PUT /api/bookings/bulk` | admin | `{ updates: [{ id, data }] }`, where `data` is the admin shape below. Same schema and same occupancy check as the single-row route. |
 | `DELETE /api/bookings/bulk` | admin | `{ bookingIds: number[] }`, and `?scope=` as on the single route: the default `occurrence` removes exactly the listed rows, promoting a successor for any that head a series, and `series` removes every occurrence of each series they belong to ([ADR-0007](decisions/0007-bulk-deletion-takes-the-same-scope.md)). `deleted` counts the rows that went, which under `series` is more than were listed. |
 
@@ -68,6 +68,11 @@ email rather than five.
 | `status` | admin | Override the initial status |
 
 Admins are notified of anything left `PENDING`, as one batched email rather than one per admin.
+
+A recurring request writes its first occurrence, then the pattern and every later occurrence in one
+batch. The first occurrence has to go first, because the rest hang off its id; if the batch then
+fails it is deleted again, because a row nobody has been told about would otherwise sit there
+holding its slot and making the admin's retry clash with a booking they cannot see.
 
 ### `PUT /api/bookings/:id`
 
