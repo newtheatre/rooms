@@ -1,11 +1,12 @@
 /**
  * DELETE /api/bookings/bulk: delete many bookings in one request. Admin only.
  *
- * Body: `{ bookingIds: number[] }`. Notifications are grouped by user.
+ * Scoped like the single route, and notifications are grouped by user.
  */
 import { db, schema } from '@nuxthub/db'
-import { inArray } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { notifyBulkBookingUpdates, formatBookingDateTime } from '~~/server/utils/notifications'
+import { promoteNextOccurrence, seriesBookingsForParents, seriesParentId } from '~~/server/utils/bookingSeries'
 import { z } from 'zod'
 
 const bulkDeleteSchema = z.object({
@@ -18,6 +19,15 @@ defineRouteMeta({
     summary: 'Delete many bookings',
     description: 'Deletes each listed booking. Notifications are grouped by user.',
     security: [{ sessionAuth: [] }],
+    parameters: [
+      {
+        in: 'query',
+        name: 'scope',
+        required: false,
+        schema: { type: 'string', enum: ['occurrence', 'series'], default: 'occurrence' },
+        description: 'Delete just the listed occurrences, or every occurrence of each series they belong to'
+      }
+    ],
     requestBody: {
       required: true,
       content: {
@@ -73,17 +83,18 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { bookingIds } = validation.data
+  const { scope } = await getValidatedQuery(event, bookingDeleteQuerySchema.parse)
+  const bookingIds = [...new Set(validation.data.bookingIds)]
 
   // Chunked: an IN list of the full 100 ids would bind D1's whole parameter
   // budget in one statement (CLAUDE.md invariant 10).
-  const bookingsToDelete = await chunkedByIds(bookingIds, ids => db
+  const selected = await chunkedByIds(bookingIds, ids => db
     .select()
     .from(schema.bookings)
     .where(inArray(schema.bookings.id, ids)))
 
-  if (bookingsToDelete.length !== bookingIds.length) {
-    const foundIds = new Set(bookingsToDelete.map(b => b.id))
+  if (selected.length !== bookingIds.length) {
+    const foundIds = new Set(selected.map(b => b.id))
     const missingIds = bookingIds.filter(id => !foundIds.has(id))
     throw createError({
       statusCode: 404,
@@ -92,15 +103,24 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Prepare notifications before deletion
+  // Deduplicated: two occurrences of one series must not delete it twice.
+  const parentIds = [...new Set(selected.map(seriesParentId))]
+
+  const doomed = scope === 'series'
+    ? await seriesBookingsForParents(parentIds)
+    : selected
+
+  // Built from the rows actually going, not the selection: a series takes
+  // occurrences nobody ticked.
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const notifications: Array<{ user: any, booking: any, message: string }> = []
 
   const usersById = await loadUsersByIds(
-    bookingsToDelete.map(b => b.userId).filter((id): id is string => Boolean(id))
+    doomed.map(b => b.userId).filter((id): id is string => Boolean(id))
   )
 
-  for (const booking of bookingsToDelete) {
+  for (const booking of doomed) {
     const bookingUser = booking.userId ? usersById.get(booking.userId) : undefined
     if (bookingUser) {
       const bookingDateTime = formatBookingDateTime(booking)
@@ -114,11 +134,20 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Delete all bookings, chunked for the same reason as the read above.
-  await chunkedByIds(bookingIds, ids => db
-    .delete(schema.bookings)
-    .where(inArray(schema.bookings.id, ids))
-    .returning({ id: schema.bookings.id }))
+  if (scope === 'series') {
+    // Deleting each head cascades to the rest, which is what is wanted here.
+    await chunkedByIds(parentIds, ids => db
+      .delete(schema.bookings)
+      .where(inArray(schema.bookings.id, ids))
+      .returning({ id: schema.bookings.id }))
+  } else {
+    // One at a time, promoting first: an id list would cascade into every
+    // later occurrence of any series head it held (ADR-0007).
+    for (const booking of selected) {
+      await promoteNextOccurrence(booking.id)
+      await db.delete(schema.bookings).where(eq(schema.bookings.id, booking.id))
+    }
+  }
 
   // Send all notifications grouped by user (one email per user with all their deletions)
   await notifyBulkBookingUpdates(notifications).catch((err) => {
@@ -126,6 +155,6 @@ export default defineEventHandler(async (event) => {
   })
 
   return {
-    deleted: bookingsToDelete.length
+    deleted: doomed.length
   }
 })

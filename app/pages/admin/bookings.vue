@@ -518,8 +518,8 @@ async function bulkDelete() {
   if (selectedBookings.value.length === 0) return
 
   try {
-    // Use bulk delete endpoint
-    await $fetch('/api/bookings/bulk', {
+    // The count is the server's: it is the one that knows what a series took.
+    const { deleted } = await $fetch<{ deleted: number }>('/api/bookings/bulk', {
       method: 'DELETE',
       body: {
         bookingIds: selectedBookings.value.map(b => b.id)
@@ -528,7 +528,7 @@ async function bulkDelete() {
 
     toast.add({
       title: 'Bookings deleted',
-      description: `${selectedBookings.value.length} booking(s) have been deleted`,
+      description: `${deleted} booking(s) have been deleted`,
       icon: 'i-lucide-check',
       color: 'success'
     })

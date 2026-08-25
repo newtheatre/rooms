@@ -1,6 +1,7 @@
 # ADR-0003: Deleting the head of a recurring series promotes its successor
 
-**Status:** Accepted · **Date:** 2026-08-19 · **Deciders:** Matt Adcock (ITM 26/27)
+**Status:** Accepted, extended by [ADR-0007](0007-bulk-deletion-takes-the-same-scope.md), which
+gives the bulk route the same scope · **Date:** 2026-08-19 · **Deciders:** Matt Adcock (ITM 26/27)
 
 ## Context
 
