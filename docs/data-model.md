@@ -34,6 +34,21 @@ session and is read from there.
 
 Account-security email ignores both notification columns.
 
+A merge that ran before the tombstone existed deleted the losing row, and a session that outlived
+it could then re-create the id with the person's real name and email. Nothing scrubs those rows
+now, because the auth service will not send a hook for an id it has already erased. They are
+findable, and each one should be checked against the merges in the auth service's audit log and
+scrubbed by hand:
+
+```sql
+SELECT u.id, u.email, u.created_at FROM users u
+WHERE u.anonymised_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.user_id = u.id);
+```
+
+That lists every mirror row holding no bookings, which is a superset: someone who signed in and
+never booked looks the same. The auth service is the authority on which of those ids are erased.
+
 ## rooms
 
 Internal rehearsal rooms the theatre controls directly.
