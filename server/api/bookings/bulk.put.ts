@@ -3,10 +3,11 @@
  * so five moved bookings send one email.
  */
 import { db, schema } from '@nuxthub/db'
-import { inArray } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { notifyBulkBookingUpdates, bookingStatusMessage } from '~~/server/utils/notifications'
 import { z } from 'zod'
-import { applyBookingChange } from '~~/server/utils/bookingWrites'
+import { planBookingChange } from '~~/server/utils/bookingWrites'
 import { updateBookingSchema } from '~~/server/utils/validation'
 
 // The canonical schema, not a copy: a local one silently lost the rule that a
@@ -119,6 +120,9 @@ export default defineEventHandler(async (event) => {
 
   // Process all updates
   const updatedBookings = []
+  const planned: BatchItem<'sqlite'>[] = []
+  const changedIds: number[] = []
+  const statusChangedIds = new Set<number>()
   const pending: Array<{ userId: string, booking: BookingWithRelations, message: string }> = []
 
   for (const update of updates) {
@@ -130,27 +134,39 @@ export default defineEventHandler(async (event) => {
     // Track if status changed for notification
     const statusChanged = data.status && data.status !== existingBooking.status
 
-    // One statement per booking: a fixed parameter count regardless of batch.
+    // Planned, not written: a conflict on the tenth booking must not leave the
+    // first nine changed and every notification unsent.
     const { startTime, endTime, allowConflicts, ...rest } = data
-    await applyBookingChange(existingBooking, {
+    const changes = await planBookingChange(existingBooking, {
       ...rest,
       ...(startTime && { startTime: new Date(startTime) }),
       ...(endTime && { endTime: new Date(endTime) })
     }, { allowConflicts })
 
-    const updatedBooking = await findBooking(update.id)
+    planned.push(
+      db.update(schema.bookings).set(changes).where(eq(schema.bookings.id, existingBooking.id))
+    )
+    changedIds.push(update.id)
+
+    if (statusChanged) statusChangedIds.add(update.id)
+  }
+
+  // Every row or none: the whole set is planned before any of it is written.
+  if (planned.length) {
+    await db.batch(planned as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]])
+  }
+
+  for (const id of changedIds) {
+    const updatedBooking = await findBooking(id)
     if (!updatedBooking) continue
 
     updatedBookings.push(updatedBooking)
 
-    // Queue notification if status changed
-    if (statusChanged && updatedBooking.userId) {
-      const message = bookingStatusMessage(updatedBooking)
-
+    if (statusChangedIds.has(id) && updatedBooking.userId) {
       pending.push({
         userId: updatedBooking.userId,
         booking: updatedBooking,
-        message
+        message: bookingStatusMessage(updatedBooking)
       })
     }
   }

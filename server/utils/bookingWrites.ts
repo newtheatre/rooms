@@ -45,6 +45,19 @@ export async function applyBookingChange(
   patch: BookingPatch,
   options: { allowConflicts?: boolean } = {}
 ): Promise<void> {
+  const changes = await planBookingChange(existing, patch, options)
+  await db.update(schema.bookings).set(changes).where(eq(schema.bookings.id, existing.id))
+}
+
+/**
+ * The same checks without the write, so a caller changing several bookings can
+ * refuse the whole set before any of it lands.
+ */
+export async function planBookingChange(
+  existing: Booking,
+  patch: BookingPatch,
+  options: { allowConflicts?: boolean } = {}
+): Promise<Record<string, unknown>> {
   const { roomId, externalVenueId } = resolveSpace(existing, patch)
   const startTime = patch.startTime ?? existing.startTime
   const endTime = patch.endTime ?? existing.endTime
@@ -91,5 +104,5 @@ export async function applyBookingChange(
     })
   }
 
-  await db.update(schema.bookings).set(changes).where(eq(schema.bookings.id, existing.id))
+  return changes
 }
