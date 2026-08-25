@@ -115,6 +115,13 @@ re-checks occupancy for the booking as it will be *after* the patch. A change th
 double-book returns **409** with the clashing bookings in `data.conflicts`. `allowConflicts: true`
 is the deliberate admin override and is the only way to write a clash.
 
+The `UPDATE` carries the occupancy rule as well, so a clash that lands between the check and the
+write matches no rows instead of double-booking the room
+([ADR-0008](decisions/0008-the-occupancy-check-is-re-asserted-in-the-write.md)). Under
+`?scope=series`, and on the bulk route, the occurrences ahead of a blocked one have already been
+written when that 409 comes back: D1 treats a statement matching no rows as a success, so the
+batch commits. Refresh the list rather than assuming nothing landed.
+
 A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never blocked.
 
 ## Rooms

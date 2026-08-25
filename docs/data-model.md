@@ -119,6 +119,11 @@ request holds its slot, so two people cannot both be told yes.
 a booking ending exactly when another starts is not a conflict. `allowConflicts` is the deliberate
 admin override for double-booking.
 
+The rule is asserted twice: once as a `SELECT`, which is what produces the 409 and its list of
+clashing bookings, and again as a `NOT EXISTS` predicate on the `UPDATE` itself, because D1 has no
+interactive transaction and a `SELECT` on its own cannot hold the slot between the check and the
+write ([ADR-0008](decisions/0008-the-occupancy-check-is-re-asserted-in-the-write.md)).
+
 **A window must end after it starts, and the write path is what enforces it.** There is no `CHECK`
 on the columns, because SQLite has no `ALTER COLUMN` and adding one means rebuilding the table.
 `planBookingChange` refuses any patch that touches either end and leaves `end_time` at or before
