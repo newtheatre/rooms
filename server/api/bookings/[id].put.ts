@@ -203,11 +203,15 @@ export default defineEventHandler(async (event) => {
     }
 
     const { startTime, endTime, ...rest } = data
-    await applyBookingChange(existingBooking, {
-      ...rest,
-      ...(startTime && { startTime: new Date(startTime) }),
-      ...(endTime && { endTime: new Date(endTime) })
-    })
+
+    // Narrowed as well as validated: a cancellation writes the status alone.
+    await applyBookingChange(existingBooking, isCancellation
+      ? { status: 'CANCELLED' }
+      : {
+          ...rest,
+          ...(startTime && { startTime: new Date(startTime) }),
+          ...(endTime && { endTime: new Date(endTime) })
+        })
 
     const updatedBooking = await findBooking(id)
     if (!updatedBooking) {

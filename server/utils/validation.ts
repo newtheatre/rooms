@@ -220,6 +220,13 @@ export const ownerUpdateBookingSchema = z.object({
     message: 'End time must be after start time',
     path: ['endTime']
   }
+).refine(
+  // Giving the room back is the owner's to decide, moving it is not.
+  data => !data.status || Object.keys(data).length === 1,
+  {
+    message: 'A cancellation may not carry other changes',
+    path: ['status']
+  }
 )
 
 export const createRoomSchema = z.object({

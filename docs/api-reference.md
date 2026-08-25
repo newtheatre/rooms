@@ -86,9 +86,11 @@ ends it carries: a patch that would leave a booking ending at or before it start
 not a row that occupies nothing. See [data-model.md](data-model.md#occupancy).
 
 An owner may cancel a confirmed slot but not edit one: giving the room back is theirs to
-decide, moving it is not. Every owner cancellation alerts the admins who have opted in, and
-names the external venue when there is one, because that booking was arranged by hand and
-someone has to unarrange it.
+decide, moving it is not. A body carrying `status` alongside any other field is a **400**, so a
+cancellation cannot smuggle a new window or title past the `PENDING`-only guard, and the route
+writes the status on its own whatever else the body held. Every owner cancellation alerts the
+admins who have opted in, and names the external venue when there is one, because that booking was
+arranged by hand and someone has to unarrange it.
 
 A status change made by an admin notifies the owner, subject to their preferences. Under
 `?scope=series` that notification names the occurrence in the URL only, even though every open
