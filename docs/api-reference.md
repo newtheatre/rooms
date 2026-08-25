@@ -126,6 +126,11 @@ re-checks occupancy for the booking as it will be *after* the patch. A change th
 double-book returns **409** with the clashing bookings in `data.conflicts`. `allowConflicts: true`
 is the deliberate admin override and is the only way to write a clash.
 
+Each entry carries `id`, `startTime`, `endTime` and `status`. `eventTitle` is the real title only
+for a caller holding `booking.read.any`; everyone else gets `"Booked"`, the same masking
+`GET /api/rooms/available` applies. An owner editing their own request is told a slot is taken and
+when, never whose production has it. No entry ever carries the holder's `user` object.
+
 The `UPDATE` carries the occupancy rule as well, so a clash that lands between the check and the
 write matches no rows instead of double-booking the room
 ([ADR-0008](decisions/0008-the-occupancy-check-is-re-asserted-in-the-write.md)). Under
@@ -160,6 +165,9 @@ The window is capped twice, and both are **400**s
 The second cap is passed only by this route's sweep. The occupancy gate on the write path shares
 the same query and reads every clash, uncapped, because a gate that sees part of the picture is
 worse than no gate.
+
+Who holds a clashing booking is admin-only here and in the **409** the write path returns: without
+`booking.read.any` a conflict reads `eventTitle: "Booked"` and carries no `user` object.
 
 ## Venues
 

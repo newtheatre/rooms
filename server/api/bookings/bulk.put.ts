@@ -97,6 +97,9 @@ export default defineEventHandler(async (event) => {
 
   const { updates } = validation.data
 
+  // The 409 names the clashing bookings only for someone allowed to see them.
+  const revealConflictTitles = await canNow(event, 'booking.read.any')
+
   // Extract all booking IDs
   const bookingIds = updates.map(u => u.id)
 
@@ -146,7 +149,7 @@ export default defineEventHandler(async (event) => {
       ...(endTime && { endTime: new Date(endTime) })
     }
 
-    const { changes, where } = await planBookingChange(existingBooking, patch, { allowConflicts })
+    const { changes, where } = await planBookingChange(existingBooking, patch, { allowConflicts, revealConflictTitles })
 
     planned.push(
       db.update(schema.bookings).set(changes).where(where).returning({ id: schema.bookings.id })
@@ -166,7 +169,7 @@ export default defineEventHandler(async (event) => {
     // No rows back means the occupancy re-check refused that statement.
     const blocked = attempted.findIndex((_, index) => !results[index]?.length)
     if (blocked !== -1) {
-      await refuseBlockedBookingWrite(attempted[blocked]!.target, attempted[blocked]!.patch)
+      await refuseBlockedBookingWrite(attempted[blocked]!.target, attempted[blocked]!.patch, { revealConflictTitles })
     }
   }
 

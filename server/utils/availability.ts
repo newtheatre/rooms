@@ -148,18 +148,36 @@ export async function getAvailableRooms(
   return { available, unavailable }
 }
 
-/**
- * Throws 409 if the space is taken. `allowConflicts` is the admin override:
- * double-booking deliberately, which the UI asks about first.
- */
+/** Options both write paths pass through to the occupancy check. */
+export interface AvailabilityOptions {
+  /** The admin override: double-booking deliberately, which the UI asks first. */
+  allowConflicts?: boolean
+  /** Titles are admin-only; everyone else sees "Booked", as on the availability route. */
+  revealConflictTitles?: boolean
+}
+
+/** What a 409 may say about someone else's booking, given who is asking. */
+function conflictPayload(conflicts: Conflict[], revealTitles: boolean) {
+  return conflicts.map(conflict => ({
+    id: conflict.id,
+    eventTitle: revealTitles ? conflict.eventTitle : 'Booked',
+    startTime: conflict.startTime,
+    endTime: conflict.endTime,
+    status: conflict.status
+  }))
+}
+
+/** Throws 409 if the space is taken, naming the clashes an admin may see. */
 export async function validateBookingAvailability(
   roomId: number | undefined | null,
   externalVenueId: number | undefined | null,
   startTime: Date,
   endTime: Date,
   excludeBookingId?: number,
-  allowConflicts = false
+  options: AvailabilityOptions = {}
 ): Promise<void> {
+  const { allowConflicts = false, revealConflictTitles = false } = options
+
   if (roomId) {
     const { isAvailable, conflicts } = await checkRoomAvailability(
       roomId,
@@ -174,13 +192,7 @@ export async function validateBookingAvailability(
         statusMessage: 'Room is not available',
         data: {
           message: `This room is already booked for the selected time. Found ${conflicts.length} conflicting booking(s).`,
-          conflicts: conflicts.map(c => ({
-            id: c.id,
-            eventTitle: c.eventTitle,
-            startTime: c.startTime,
-            endTime: c.endTime,
-            status: c.status
-          }))
+          conflicts: conflictPayload(conflicts, revealConflictTitles)
         }
       })
     }
@@ -200,13 +212,7 @@ export async function validateBookingAvailability(
         statusMessage: 'Venue is not available',
         data: {
           message: `This venue is already booked for the selected time. Found ${conflicts.length} conflicting booking(s).`,
-          conflicts: conflicts.map(c => ({
-            id: c.id,
-            eventTitle: c.eventTitle,
-            startTime: c.startTime,
-            endTime: c.endTime,
-            status: c.status
-          }))
+          conflicts: conflictPayload(conflicts, revealConflictTitles)
         }
       })
     }

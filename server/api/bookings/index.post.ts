@@ -89,7 +89,9 @@ export default defineEventHandler(async (event) => {
 
   // A recurring booking checks every occurrence inside createRecurringBookings.
   if (isAdmin && !isRecurring && (roomId || externalVenueId)) {
-    await validateBookingAvailability(roomId, externalVenueId, startTime, endTime)
+    await validateBookingAvailability(roomId, externalVenueId, startTime, endTime, undefined, {
+      revealConflictTitles: await canNow(event, 'booking.read.any')
+    })
   }
 
   // Create booking(s)
