@@ -30,9 +30,24 @@ session and is read from there.
 | `is_rooms_admin` | **A cache, not an authority.** Refreshed from the session on each request and used only to decide who receives admin notification fan-out; a cron has no session to read roles from. Never gate access on it. |
 | `notification_channels` | JSON array, e.g. `["EMAIL", "PUSH"]`. Unparseable values fall back to `["EMAIL"]`. |
 | `notification_preferences` | JSON array, e.g. `["BOOKING_UPDATES"]`. Unparseable values fall back to `["BOOKING_UPDATES"]`. |
-| `anonymised_at` | Set by the erasure hook. While it is non-null the row is never written back over, whichever caller asks ([ADR-0005](decisions/0005-an-erased-user-is-never-written-back-over.md)). `server/utils/mirrorUser.ts` is the one write path. |
+| `anonymised_at` | Set by the erasure hook, and by the merge hook on the losing id. While it is non-null the row is never written back over, whichever caller asks. An erased id always keeps a row, because the column can only hold a write off while something carries it ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). `server/utils/mirrorUser.ts` is the one write path. |
 
 Account-security email ignores both notification columns.
+
+A merge that ran before the tombstone existed deleted the losing row, and a session that outlived
+it could then re-create the id with the person's real name and email. Nothing scrubs those rows
+now, because the auth service will not send a hook for an id it has already erased. They are
+findable, and each one should be checked against the merges in the auth service's audit log and
+scrubbed by hand:
+
+```sql
+SELECT u.id, u.email, u.created_at FROM users u
+WHERE u.anonymised_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.user_id = u.id);
+```
+
+That lists every mirror row holding no bookings, which is a superset: someone who signed in and
+never booked looks the same. The auth service is the authority on which of those ids are erased.
 
 ## rooms
 
@@ -103,6 +118,19 @@ request holds its slot, so two people cannot both be told yes.
 `server/utils/availability.ts` is the single implementation of that rule. Intervals are half-open:
 a booking ending exactly when another starts is not a conflict. `allowConflicts` is the deliberate
 admin override for double-booking.
+
+**A window must end after it starts, and the write path is what enforces it.** There is no `CHECK`
+on the columns, because SQLite has no `ALTER COLUMN` and adding one means rebuilding the table.
+`planBookingChange` refuses any patch that touches either end and leaves `end_time` at or before
+`start_time`, which matters because the occupancy predicate is `start_time < :end AND end_time >
+:start`: an inverted row can never satisfy it, so it holds no slot and the room reads as free while
+its owner believes they have it. To find any that predate the check:
+
+```sql
+SELECT id, user_id, start_time, end_time FROM bookings WHERE end_time <= start_time;
+```
+
+Each one needs its window corrected or the booking cancelling, by hand.
 
 ### Indexes
 

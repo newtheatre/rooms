@@ -4,7 +4,7 @@
  */
 
 import { db, schema } from '@nuxthub/db'
-import { and, asc, eq, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, ne } from 'drizzle-orm'
 import type { Booking } from '~~/server/db/schema/booking'
 
 /** The id every occurrence in the series hangs off. */
@@ -14,7 +14,7 @@ export function seriesParentId(booking: Booking): number {
 
 /** Still holding a slot, so still worth applying a series-wide change to. */
 export function isOpen(booking: Booking): boolean {
-  return booking.status !== 'REJECTED' && booking.status !== 'CANCELLED'
+  return isOpenStatus(booking.status)
 }
 
 export function isSeriesMember(booking: Booking): boolean {
@@ -31,6 +31,19 @@ export async function seriesBookings(parentId: number): Promise<Booking[]> {
   ])
 
   return [...head, ...children]
+}
+
+/** Every occurrence of each of several series, deduplicated. */
+export async function seriesBookingsForParents(parentIds: number[]): Promise<Booking[]> {
+  // Chunked: an id list from a result set would otherwise grow with it.
+  const [heads, children] = await Promise.all([
+    chunkedByIds(parentIds, ids => db.select().from(schema.bookings)
+      .where(inArray(schema.bookings.id, ids))),
+    chunkedByIds(parentIds, ids => db.select().from(schema.bookings)
+      .where(inArray(schema.bookings.parentBookingId, ids)))
+  ])
+
+  return [...new Map([...heads, ...children].map(booking => [booking.id, booking])).values()]
 }
 
 /**

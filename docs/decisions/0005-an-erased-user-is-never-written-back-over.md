@@ -1,6 +1,7 @@
 # ADR-0005: An erased user is never written back over
 
-**Status:** Accepted · **Date:** 2026-08-20 · **Deciders:** Matt Adcock (ITM 26/27)
+**Status:** Superseded by [ADR-0006](0006-an-erased-id-always-keeps-a-tombstone-row.md) ·
+**Date:** 2026-08-20 · **Deciders:** Matt Adcock (ITM 26/27)
 
 ## Context
 

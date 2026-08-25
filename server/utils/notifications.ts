@@ -121,8 +121,21 @@ function resendError(error: unknown): Error {
   return new Error(`Resend rejected the send: ${parts.join(' ') || JSON.stringify(error)}`)
 }
 
+/**
+ * An erased id, a merged-away one and the ADR-0004 collision placeholder all
+ * hold an address under `.invalid`, which Resend rejects as a hard bounce.
+ */
+export function isDeliverable(user: User): boolean {
+  return !user.anonymisedAt && !user.email.endsWith('.invalid')
+}
+
 /** Sends one email via Resend. No-op in development. */
 export async function sendEmail(user: User, subject: string, content: string): Promise<void> {
+  if (!isDeliverable(user)) {
+    console.warn(`[notify] dropped "${subject}" for ${user.id}: the mirror row holds no deliverable address.`)
+    return
+  }
+
   console.log(`[EMAIL] To: ${user.email}, Subject: ${subject}`)
 
   if (process.env.NODE_ENV === 'development') return
@@ -148,9 +161,16 @@ export async function sendEmail(user: User, subject: string, content: string): P
  * requires a `to`, which is the sending address.
  */
 export async function sendBatchEmail(users: User[], subject: string, content: string): Promise<void> {
-  if (users.length === 0) return
+  const recipients = users.filter(isDeliverable)
+  const dropped = users.length - recipients.length
 
-  const emailAddresses = users.map(user => user.email)
+  if (dropped) {
+    console.warn(`[notify] dropped "${subject}" for ${dropped} recipient(s) holding no deliverable address.`)
+  }
+
+  if (recipients.length === 0) return
+
+  const emailAddresses = recipients.map(user => user.email)
   console.log(`[BATCH EMAIL] To: ${emailAddresses.length} recipients, Subject: ${subject}`)
 
   if (process.env.NODE_ENV === 'development') return

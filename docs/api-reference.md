@@ -50,7 +50,7 @@ reaching the ORM and surfacing as a 500.
 | `PUT /api/bookings/:id` | owner or admin | Field set depends on role. See below. `?scope=series` applies an admin's change to every unfinished occurrence. |
 | `DELETE /api/bookings/:id` | owner or admin | Deletes and notifies the owner. `?scope=series` removes the whole recurring series; the default `occurrence` removes one and promotes the next to head it ([ADR-0003](decisions/0003-deleting-the-head-of-a-recurring-series.md)). |
 | `PUT /api/bookings/bulk` | admin | `{ updates: [{ id, data }] }`, where `data` is the admin shape below. Same schema and same occupancy check as the single-row route. |
-| `DELETE /api/bookings/bulk` | admin | `{ bookingIds: number[] }`. |
+| `DELETE /api/bookings/bulk` | admin | `{ bookingIds: number[] }`, and `?scope=` as on the single route: the default `occurrence` removes exactly the listed rows, promoting a successor for any that head a series, and `series` removes every occurrence of each series they belong to ([ADR-0007](decisions/0007-bulk-deletion-takes-the-same-scope.md)). `deleted` counts the rows that went, which under `series` is more than were listed. |
 
 Both bulk routes group notifications by user, so someone whose five bookings all move gets one
 email rather than five.
@@ -81,12 +81,22 @@ Moving a booking is an admin action: changing `startTime` or `endTime` re-checks
 the new window, so a move onto an occupied slot is a 409 like any other clash. This is what makes
 "occurrences are moved one at a time" possible at all.
 
+A body may carry one end of the window on its own, and the resolved window is checked whichever
+ends it carries: a patch that would leave a booking ending at or before it starts is a **400**,
+not a row that occupies nothing. See [data-model.md](data-model.md#occupancy).
+
 An owner may cancel a confirmed slot but not edit one: giving the room back is theirs to
 decide, moving it is not. Every owner cancellation alerts the admins who have opted in, and
 names the external venue when there is one, because that booking was arranged by hand and
 someone has to unarrange it.
 
-A status change made by an admin notifies the owner, subject to their preferences.
+A status change made by an admin notifies the owner, subject to their preferences. Under
+`?scope=series` that notification names the occurrence in the URL only, even though every open
+occurrence was changed. See [README.md](../README.md) §Known gaps.
+
+`?scope=series` covers every occurrence that is not `REJECTED` or `CANCELLED`, whatever else it
+holds: a confirmed occurrence is moved by a series-wide assignment like any other. The admin page
+previews exactly that set before asking, from the same predicate (`shared/utils/bookingStatus.ts`).
 
 `REJECTED` and `CANCELLED` are terminal. Any change back out of them is refused with **409**,
 whoever asks: a released slot may have been given to someone else, so the booking has to be
@@ -140,6 +150,12 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 **Nothing sends to push subscriptions.** `sendPushNotification` is a stub. See
 [data-model.md](data-model.md#push_subscriptions).
 
+**Mail is never sent to a placeholder address.** A mirror row carrying `anonymised_at`, or an
+address under `.invalid`, is dropped with a warning naming the subject rather than handed to
+Resend. Three things write such an address: erasure, a merge, and the collision placeholder from
+[ADR-0004](decisions/0004-an-email-collision-must-not-break-every-request.md). Sending to one
+bounces, and a hard bounce counts against the domain every other message goes out on.
+
 ## Inbound GDPR hooks
 
 Called by the auth service, authenticated by hashed service token. All are idempotent, because
@@ -148,9 +164,9 @@ stage-door retries them until they succeed.
 | Route | Effect |
 | --- | --- |
 | `POST /api/_hooks/auth/export` | `{ userId }` → this app's personal data: the mirror row and their bookings, including `notes` and `rejectionReason` |
-| `POST /api/_hooks/auth/anonymise` | Scrubs the mirror row and every free-text field on their bookings. Bookings survive as anonymous rows. Scrub list below. |
+| `POST /api/_hooks/auth/anonymise` | Scrubs the mirror row and every free-text field on their bookings. Bookings survive as anonymous rows. Writes the scrubbed row even when nothing was mirrored here, so a sealed cookie cannot mirror the subject back afterwards ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). Scrub list below. |
 | `POST /api/_hooks/auth/last-activity` | `{ userIds }` → latest booking activity per user. Chunks its `in` clause at 90 ids, because D1 caps bound parameters at 100. |
-| `POST /api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → re-points bookings and push subscriptions onto the winner, deletes the losing mirror row. Each statement binds two parameters however many rows move, so no chunking is needed here. The winner's own preferences are untouched. (stage-door ADR-0015) |
+| `POST /api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → re-points bookings and push subscriptions onto the winner, then scrubs the losing mirror row to the same tombstone erasure leaves. It is not deleted: the loser's cookie stays readable and would insert the row straight back ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). The winner's row is minted if it has none, taking the loser's address so booking mail still reaches them until they next sign in. Each statement binds two parameters however many rows move, so no chunking is needed here. The winner's own preferences are untouched. (stage-door ADR-0015) |
 | `GET /api/_hooks/auth/manifest` | This app's declaration: namespace, the roles it reads, and the permissions each carries. The auth service polls it and turns the roles into definitions, so adding a role here is what makes it grantable (stage-door ADR-0017). |
 
 ### What erasure scrubs
@@ -168,7 +184,12 @@ notes and is returned by the export hook.
 
 `anonymised_at` is what stops the scrub being undone. A sealed session stays readable after
 erasure, and every authenticated request upserts the mirror; the upsert skips a row carrying that
-column, so the erased details are not written back ([ADR-0005](decisions/0005-an-erased-user-is-never-written-back-over.md)).
+column, so the erased details are not written back.
+
+The row is written whether or not one was there, because a column can only hold a write off while
+there is a row to carry it. The merge hook leaves the same tombstone rather than deleting the
+losing row, for the same reason
+([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)).
 
 The manifest is `shared/utils/appManifest.ts`, served verbatim. `rooms:ADMIN` is still the only role
 this app owns, but the four things it actually gates are now named rather than inferred:

@@ -63,6 +63,16 @@ export async function planBookingChange(
   const endTime = patch.endTime ?? existing.endTime
   const status = patch.status ?? existing.status
 
+  // A patch carrying one end could otherwise invert the window, which occupies
+  // nothing and frees the room silently (docs/data-model.md#occupancy).
+  if ((patch.startTime !== undefined || patch.endTime !== undefined) && endTime <= startTime) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'End time must be after start time',
+      message: 'A booking must end after it starts.'
+    })
+  }
+
   if (TERMINAL.includes(existing.status) && !TERMINAL.includes(status)) {
     throw createError({
       statusCode: 409,

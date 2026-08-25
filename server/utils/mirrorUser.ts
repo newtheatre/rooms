@@ -1,6 +1,6 @@
 /**
  * The one write path into the user mirror. An erased row is never written back
- * over, whichever caller is asking (ADR-0005).
+ * over, and an erased id always keeps a row to hold that off (ADR-0006).
  */
 
 import { db, schema } from '@nuxthub/db'
@@ -38,7 +38,7 @@ function upsert(user: MirroredUser, email: string) {
       target: schema.users.id,
       set,
       // Never resurrect an erased account: the sealed cookie stays readable
-      // after erasure and would write their details back (ADR-0005).
+      // after erasure and would write their details back (ADR-0006).
       setWhere: isNull(schema.users.anonymisedAt)
     })
     .returning()
@@ -56,4 +56,29 @@ export async function upsertMirroredUser(user: MirroredUser) {
     console.warn(`[mirror] ${user.email} is held by another id; mirrored ${user.id} without it.`)
     return firstRow(await upsert(user, placeholderEmail(user.id)))
   }
+}
+
+/** The scrubbed row an erased or merged-away id is left with. */
+function tombstoneValues(userId: string) {
+  return {
+    email: `deleted-${userId}@anonymised.invalid`,
+    name: 'Deleted user',
+    isRoomsAdmin: false,
+    notificationChannels: '[]',
+    notificationPreferences: '[]',
+    anonymisedAt: new Date()
+  }
+}
+
+/**
+ * Stamps the tombstone whether or not a row exists: with nothing to stamp, a
+ * sealed cookie outliving the erasure inserts the details back (ADR-0006).
+ */
+export function tombstoneMirroredUser(userId: string) {
+  const values = tombstoneValues(userId)
+
+  return db
+    .insert(schema.users)
+    .values({ ...values, id: userId })
+    .onConflictDoUpdate({ target: schema.users.id, set: values })
 }
