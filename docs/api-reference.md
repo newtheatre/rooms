@@ -81,6 +81,10 @@ Moving a booking is an admin action: changing `startTime` or `endTime` re-checks
 the new window, so a move onto an occupied slot is a 409 like any other clash. This is what makes
 "occurrences are moved one at a time" possible at all.
 
+A body may carry one end of the window on its own, and the resolved window is checked whichever
+ends it carries: a patch that would leave a booking ending at or before it starts is a **400**,
+not a row that occupies nothing. See [data-model.md](data-model.md#occupancy).
+
 An owner may cancel a confirmed slot but not edit one: giving the room back is theirs to
 decide, moving it is not. Every owner cancellation alerts the admins who have opted in, and
 names the external venue when there is one, because that booking was arranged by hand and

@@ -104,6 +104,19 @@ request holds its slot, so two people cannot both be told yes.
 a booking ending exactly when another starts is not a conflict. `allowConflicts` is the deliberate
 admin override for double-booking.
 
+**A window must end after it starts, and the write path is what enforces it.** There is no `CHECK`
+on the columns, because SQLite has no `ALTER COLUMN` and adding one means rebuilding the table.
+`planBookingChange` refuses any patch that touches either end and leaves `end_time` at or before
+`start_time`, which matters because the occupancy predicate is `start_time < :end AND end_time >
+:start`: an inverted row can never satisfy it, so it holds no slot and the room reads as free while
+its owner believes they have it. To find any that predate the check:
+
+```sql
+SELECT id, user_id, start_time, end_time FROM bookings WHERE end_time <= start_time;
+```
+
+Each one needs its window corrected or the booking cancelling, by hand.
+
 ### Indexes
 
 `(start_time, end_time)` and `(room_id, start_time, end_time)` back the availability queries;
