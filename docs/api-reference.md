@@ -140,6 +140,12 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 **Nothing sends to push subscriptions.** `sendPushNotification` is a stub. See
 [data-model.md](data-model.md#push_subscriptions).
 
+**Mail is never sent to a placeholder address.** A mirror row carrying `anonymised_at`, or an
+address under `.invalid`, is dropped with a warning naming the subject rather than handed to
+Resend. Three things write such an address: erasure, a merge, and the collision placeholder from
+[ADR-0004](decisions/0004-an-email-collision-must-not-break-every-request.md). Sending to one
+bounces, and a hard bounce counts against the domain every other message goes out on.
+
 ## Inbound GDPR hooks
 
 Called by the auth service, authenticated by hashed service token. All are idempotent, because
@@ -150,7 +156,7 @@ stage-door retries them until they succeed.
 | `POST /api/_hooks/auth/export` | `{ userId }` → this app's personal data: the mirror row and their bookings, including `notes` and `rejectionReason` |
 | `POST /api/_hooks/auth/anonymise` | Scrubs the mirror row and every free-text field on their bookings. Bookings survive as anonymous rows. Writes the scrubbed row even when nothing was mirrored here, so a sealed cookie cannot mirror the subject back afterwards ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). Scrub list below. |
 | `POST /api/_hooks/auth/last-activity` | `{ userIds }` → latest booking activity per user. Chunks its `in` clause at 90 ids, because D1 caps bound parameters at 100. |
-| `POST /api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → re-points bookings and push subscriptions onto the winner, then scrubs the losing mirror row to the same tombstone erasure leaves. It is not deleted: the loser's cookie stays readable and would insert the row straight back ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). Each statement binds two parameters however many rows move, so no chunking is needed here. The winner's own preferences are untouched. (stage-door ADR-0015) |
+| `POST /api/_hooks/auth/merge` | `{ fromUserId, toUserId, dryRun? }` → re-points bookings and push subscriptions onto the winner, then scrubs the losing mirror row to the same tombstone erasure leaves. It is not deleted: the loser's cookie stays readable and would insert the row straight back ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). The winner's row is minted if it has none, taking the loser's address so booking mail still reaches them until they next sign in. Each statement binds two parameters however many rows move, so no chunking is needed here. The winner's own preferences are untouched. (stage-door ADR-0015) |
 | `GET /api/_hooks/auth/manifest` | This app's declaration: namespace, the roles it reads, and the permissions each carries. The auth service polls it and turns the roles into definitions, so adding a role here is what makes it grantable (stage-door ADR-0017). |
 
 ### What erasure scrubs
