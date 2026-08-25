@@ -6,9 +6,8 @@
 
 import type { User } from '~~/server/db/schema/user'
 import type { Booking } from '~~/server/db/schema/booking'
-import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
 import { LONDON } from './london'
+import { adminRecipients } from './adminRecipients'
 import { getResend } from './resend'
 
 export type NotificationChannel = 'EMAIL' | 'PUSH'
@@ -203,11 +202,7 @@ export async function sendBatchEmail(users: User[], subject: string, content: st
 
 /** Fans out to admins who opted in, as one bcc'd email rather than one each. */
 export async function notifyAdmins(subject: string, content: string): Promise<void> {
-  const admins = await db
-    .select()
-    .from(schema.users)
-    .where(eq(schema.users.isRoomsAdmin, true))
-
+  const admins = await adminRecipients()
   const optedIn = admins.filter(admin => shouldNotify(admin, 'ADMIN_NEW_BOOKINGS'))
 
   await sendBatchEmail(optedIn, subject, content)

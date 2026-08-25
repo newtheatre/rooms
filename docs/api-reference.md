@@ -69,6 +69,11 @@ email rather than five.
 
 Admins are notified of anything left `PENDING`, as one batched email rather than one per admin.
 
+Who counts as an admin for that fan-out comes from stage-door's `GET /api/role-holders`, cached for
+ten minutes per isolate, not from the mirror's `is_rooms_admin` column, which never lapses when a
+committee-year grant expires. The column is the fallback for when stage-door cannot be reached
+([ADR-0009](decisions/0009-admin-fan-out-asks-stage-door-who-holds-the-role.md)).
+
 A recurring request writes its first occurrence, then the pattern and every later occurrence in one
 batch. The first occurrence has to go first, because the rest hang off its id; if the batch then
 fails it is deleted again, because a row nobody has been told about would otherwise sit there

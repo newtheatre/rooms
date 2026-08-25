@@ -3,8 +3,7 @@
  * See docs/api-reference.md#post-apibookings
  */
 import { db, schema } from '@nuxthub/db'
-import { eq } from 'drizzle-orm'
-import { notifyBookingUpdate, getNotificationPreferences, sendBatchEmail, formatBookingDateTime } from '~~/server/utils/notifications'
+import { notifyBookingUpdate, notifyAdmins, formatBookingDateTime } from '~~/server/utils/notifications'
 
 defineRouteMeta({
   openAPI: {
@@ -172,39 +171,23 @@ export default defineEventHandler(async (event) => {
 
   // Notify all admins if this is a new PENDING booking request
   if (status === 'PENDING') {
-    // Fetch all admins who have opted in to new booking notifications
-    const allAdmins = await db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.isRoomsAdmin, true))
-
-    // Filter admins who want to receive new booking notifications
-    const adminsToNotify = allAdmins.filter((admin) => {
-      const preferences = getNotificationPreferences(admin)
-      return preferences.includes('ADMIN_NEW_BOOKINGS')
-    })
-
-    if (adminsToNotify.length > 0) {
-      const adminMessage = `
+    const adminMessage = `
         New booking request submitted by ${booking.user?.name || 'Unknown User'}
 
         Event: ${booking.eventTitle}
         Date: ${formatBookingDateTime(booking)}
         ${booking.numberOfAttendees ? `Attendees: ${booking.numberOfAttendees}` : ''}
         ${booking.notes ? `Notes: ${booking.notes}` : ''}
-        
+
         Please review and assign a room or venue.
       `
 
-      // Send batch email to all subscribed admins
-      await sendBatchEmail(
-        adminsToNotify,
-        'New Booking Request - Room Booking System',
-        adminMessage
-      ).catch((err) => {
-        console.error('Failed to send batch admin notification:', err)
-      })
-    }
+    await notifyAdmins(
+      'New Booking Request - Room Booking System',
+      adminMessage
+    ).catch((err) => {
+      console.error('Failed to send batch admin notification:', err)
+    })
   }
 
   // Set 201 status code
