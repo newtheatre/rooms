@@ -4,6 +4,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
+// The rule is the character, however it is spelled: an entity is not an escape hatch.
+const EM_DASH = /\u2014|&(?:mdash|#8212|#x2014);/i
 const MAX_LINES = 2
 const ROOT = process.cwd()
 const SKIP = new Set(['node_modules', '.nuxt', '.output', '.wrangler', '.git', '.data', '.claude', 'dist', 'migrations'])
@@ -79,7 +81,7 @@ for (const file of walk(ROOT)) {
   }
   if (!NOT_OURS.has(rel)) {
     source.split('\n').forEach((text, i) => {
-      if (text.includes('\u2014')) failures.push(`${rel}:${i + 1}  em dash: use a comma, colon, semicolon, or two sentences`)
+      if (EM_DASH.test(text)) failures.push(`${rel}:${i + 1}  em dash: use a comma, colon, semicolon, or two sentences`)
     })
   }
 
