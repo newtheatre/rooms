@@ -92,9 +92,10 @@ writes the status on its own whatever else the body held. Every owner cancellati
 admins who have opted in, and names the external venue when there is one, because that booking was
 arranged by hand and someone has to unarrange it.
 
-A status change made by an admin notifies the owner, subject to their preferences. Under
-`?scope=series` that notification names the occurrence in the URL only, even though every open
-occurrence was changed. See [README.md](../README.md) §Known gaps.
+A status change made by an admin notifies the owner, subject to their preferences. It is one
+email however many rows moved, and under `?scope=series` it names the number of occurrences the
+change covered alongside the first of them, rather than reading as though a single date had
+changed.
 
 `?scope=series` covers every occurrence that is not `REJECTED` or `CANCELLED`, whatever else it
 holds: a confirmed occurrence is moved by a series-wide assignment like any other. The admin page

@@ -109,10 +109,6 @@ Recorded here rather than left to be discovered:
 - **`PUT /api/bookings/bulk` re-reads each booking after updating it**, so a long batch is two
   round-trips per row. The writes themselves are one statement each, which the D1 parameter cap
   requires.
-- **A series-wide admin action notifies once.** `PUT /api/bookings/:id?scope=series` updates every
-  open occurrence but sends one notification, for the occurrence named in the URL
-  (`server/api/bookings/[id].put.ts`). A member whose twelve rehearsals all moved rooms is told
-  about one of them. The bulk routes do group their notifications by user; this path does not.
 - **Venue assignment has no availability preview.** There is no `/api/venues/available` to match
   the rooms one, so the admin venue picker does not mark which venues are taken. Assigning a
   clashing venue is still refused server-side with a 409, so this costs a wasted click rather

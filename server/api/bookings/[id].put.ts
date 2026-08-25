@@ -162,7 +162,8 @@ export default defineEventHandler(async (event) => {
 
     // Send notification if status changed
     if (statusChanged && updatedBooking.userId) {
-      const message = bookingStatusMessage(updatedBooking)
+      // Every open occurrence moved, so the one email has to say so.
+      const message = bookingStatusMessage(updatedBooking, targets.length)
 
       const fullUser = await loadUserForNotify(updatedBooking.userId)
 
