@@ -68,6 +68,11 @@ email rather than five.
 | `status` | admin | Override the initial status |
 
 Admins are notified of anything left `PENDING`, as one batched email rather than one per admin.
+An admin receives it only if they hold the `ADMIN_NEW_BOOKINGS` preference **and** take the `EMAIL`
+channel. Turning the Email switch off on `/settings/notifications` stops the fan-out as well as
+their own booking mail, and push delivers nothing, so that is silence for them; when it leaves
+nobody to tell at all, the fan-out logs a warning
+([ADR-0010](decisions/0010-admin-fan-out-honours-the-email-channel.md)).
 
 Who counts as an admin for that fan-out comes from stage-door's `GET /api/role-holders`, cached for
 ten minutes per isolate, not from the mirror's `is_rooms_admin` column, which never lapses when a
@@ -99,7 +104,8 @@ An owner may cancel a confirmed slot but not edit one: giving the room back is t
 decide, moving it is not. A body carrying `status` alongside any other field is a **400**, so a
 cancellation cannot smuggle a new window or title past the `PENDING`-only guard, and the route
 writes the status on its own whatever else the body held. Every owner cancellation alerts the
-admins who have opted in, and names the external venue when there is one, because that booking was
+admins who have opted in, on the same two columns as the fan-out above, and names the external
+venue when there is one, because that booking was
 arranged by hand and someone has to unarrange it.
 
 A status change made by an admin notifies the owner, subject to their preferences. It is one
@@ -120,6 +126,11 @@ re-checks occupancy for the booking as it will be *after* the patch. A change th
 double-book returns **409** with the clashing bookings in `data.conflicts`. `allowConflicts: true`
 is the deliberate admin override and is the only way to write a clash.
 
+Each entry carries `id`, `startTime`, `endTime` and `status`. `eventTitle` is the real title only
+for a caller holding `booking.read.any`; everyone else gets `"Booked"`, the same masking
+`GET /api/rooms/available` applies. An owner editing their own request is told a slot is taken and
+when, never whose production has it. No entry ever carries the holder's `user` object.
+
 The `UPDATE` carries the occupancy rule as well, so a clash that lands between the check and the
 write matches no rows instead of double-booking the room
 ([ADR-0008](decisions/0008-the-occupancy-check-is-re-asserted-in-the-write.md)). Under
@@ -138,7 +149,25 @@ A booking moving to `REJECTED` or `CANCELLED` holds nothing, so it is never bloc
 | `GET /api/rooms/:id` | admin | |
 | `PUT /api/rooms/:id` | admin | Partial body, at least one field. Omitting `isActive` leaves it alone rather than reactivating the room. |
 | `DELETE /api/rooms/:id` | admin | Deactivates by default. `?permanent=true` hard-deletes, and is refused once the room has bookings. |
-| `GET /api/rooms/available` | session | Required: `startTime`, `endTime`, both ISO 8601 and validated. `excludeBookingId` omits a booking's own rows so editing it does not conflict with itself. |
+| `GET /api/rooms/available` | session | Required: `startTime`, `endTime`, both ISO 8601 and validated. `excludeBookingId` omits a booking's own rows so editing it does not conflict with itself. Capped, see below. |
+
+### `GET /api/rooms/available`
+
+The window is capped twice, and both are **400**s
+([ADR-0011](decisions/0011-the-availability-window-is-capped.md)):
+
+- **31 days** is the widest span the schema accepts. The booking forms build both ends from one
+  event date, so no first-party client comes near it.
+- **1000** is the most clashing bookings the sweep will read. Over that the request is refused
+  rather than answered from a truncated set, because the available/unavailable split is derived
+  from those rows: a dropped clash would offer an occupied room to the next member.
+
+The second cap is passed only by this route's sweep. The occupancy gate on the write path shares
+the same query and reads every clash, uncapped, because a gate that sees part of the picture is
+worse than no gate.
+
+Who holds a clashing booking is admin-only here and in the **409** the write path returns: without
+`booking.read.any` a conflict reads `eventTitle: "Booked"` and carries no `user` object.
 
 ## Venues
 

@@ -7,6 +7,7 @@ import { db, schema } from '@nuxthub/db'
 import { and, eq, gt, inArray, lt, ne, notExists, sql, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
 import type { Booking } from '~~/server/db/schema/booking'
+import type { AvailabilityOptions } from './availability'
 import { validateBookingAvailability } from './availability'
 
 type BookingStatus = Booking['status']
@@ -84,7 +85,7 @@ export interface PlannedBookingWrite {
 export async function applyBookingChange(
   existing: Booking,
   patch: BookingPatch,
-  options: { allowConflicts?: boolean } = {}
+  options: AvailabilityOptions = {}
 ): Promise<void> {
   const { changes, where } = await planBookingChange(existing, patch, options)
 
@@ -94,14 +95,18 @@ export async function applyBookingChange(
     .where(where)
     .returning({ id: schema.bookings.id })
 
-  if (!written.length) await refuseBlockedBookingWrite(existing, patch)
+  if (!written.length) await refuseBlockedBookingWrite(existing, patch, options)
 }
 
 /**
  * Why a guarded write matched nothing: the row went, or a clash landed between
  * the check and the write.
  */
-export async function refuseBlockedBookingWrite(existing: Booking, patch: BookingPatch): Promise<never> {
+export async function refuseBlockedBookingWrite(
+  existing: Booking,
+  patch: BookingPatch,
+  options: AvailabilityOptions = {}
+): Promise<never> {
   const stillThere = firstRow(await db
     .select({ id: schema.bookings.id })
     .from(schema.bookings)
@@ -122,7 +127,8 @@ export async function refuseBlockedBookingWrite(existing: Booking, patch: Bookin
     externalVenueId,
     patch.startTime ?? existing.startTime,
     patch.endTime ?? existing.endTime,
-    existing.id
+    existing.id,
+    options
   )
 
   throw createError({
@@ -139,7 +145,7 @@ export async function refuseBlockedBookingWrite(existing: Booking, patch: Bookin
 export async function planBookingChange(
   existing: Booking,
   patch: BookingPatch,
-  options: { allowConflicts?: boolean } = {}
+  options: AvailabilityOptions = {}
 ): Promise<PlannedBookingWrite> {
   const { roomId, externalVenueId } = resolveSpace(existing, patch)
   const startTime = patch.startTime ?? existing.startTime
@@ -172,7 +178,7 @@ export async function planBookingChange(
       startTime,
       endTime,
       existing.id,
-      options.allowConflicts ?? false
+      options
     )
   }
 

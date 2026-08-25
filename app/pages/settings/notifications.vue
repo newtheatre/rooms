@@ -82,7 +82,7 @@ const sections = computed(() => {
     fields: [{
       name: 'email',
       label: 'Email',
-      description: 'Receive booking updates via email.'
+      description: 'Receive booking updates by email, and new booking requests if you are an admin. Turning this off stops both.'
     }, {
       name: 'push',
       label: 'Push notifications',

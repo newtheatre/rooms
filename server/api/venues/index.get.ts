@@ -24,6 +24,18 @@ defineRouteMeta({
         name: 'building',
         schema: { type: 'string' },
         description: 'Filter by building name'
+      },
+      {
+        in: 'query',
+        name: 'limit',
+        schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+        description: 'Page size, default 50'
+      },
+      {
+        in: 'query',
+        name: 'offset',
+        schema: { type: 'integer', minimum: 0, default: 0 },
+        description: 'Rows to skip, default 0'
       }
     ],
     responses: {
@@ -32,18 +44,26 @@ defineRouteMeta({
         content: {
           'application/json': {
             schema: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'integer' },
-                  campus: { type: 'string', nullable: true },
-                  building: { type: 'string' },
-                  roomName: { type: 'string' },
-                  contactDetails: { type: 'string', nullable: true },
-                  createdAt: { type: 'string', format: 'date-time', description: 'Admin only' },
-                  bookingCount: { type: 'integer', description: 'Admin only' }
-                }
+              type: 'object',
+              properties: {
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'integer' },
+                      campus: { type: 'string', nullable: true },
+                      building: { type: 'string' },
+                      roomName: { type: 'string' },
+                      contactDetails: { type: 'string', nullable: true },
+                      createdAt: { type: 'string', format: 'date-time', description: 'Admin only' },
+                      bookingCount: { type: 'integer', description: 'Admin only' }
+                    }
+                  }
+                },
+                total: { type: 'integer' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' }
               }
             }
           }

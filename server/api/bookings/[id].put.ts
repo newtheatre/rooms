@@ -117,6 +117,9 @@ export default defineEventHandler(async (event) => {
 
   // Handle updates based on user role
   if (await canNow(event, 'booking.manage.any')) {
+    // The 409 names the clashing bookings only for someone allowed to see them.
+    const revealConflictTitles = await canNow(event, 'booking.read.any')
+
     // Admin can update booking assignment and status
     const data = await readValidatedBody(event, updateBookingSchema.parse)
     const { scope } = await getValidatedQuery(event, bookingUpdateQuerySchema.parse)
@@ -147,7 +150,7 @@ export default defineEventHandler(async (event) => {
         ? patch
         : { ...patch, startTime: undefined, endTime: undefined }
 
-      const { changes, where } = await planBookingChange(target, perTarget, { allowConflicts })
+      const { changes, where } = await planBookingChange(target, perTarget, { allowConflicts, revealConflictTitles })
       planned.push(
         db.update(schema.bookings).set(changes).where(where).returning({ id: schema.bookings.id })
       )
@@ -162,7 +165,7 @@ export default defineEventHandler(async (event) => {
       // No rows back means the occupancy re-check refused that statement.
       const blocked = attempted.findIndex((_, index) => !results[index]?.length)
       if (blocked !== -1) {
-        await refuseBlockedBookingWrite(attempted[blocked]!.target, attempted[blocked]!.patch)
+        await refuseBlockedBookingWrite(attempted[blocked]!.target, attempted[blocked]!.patch, { revealConflictTitles })
       }
     }
 

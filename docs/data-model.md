@@ -28,11 +28,12 @@ session and is read from there.
 | `id` | Canonical auth-service id. Never minted locally. |
 | `email` | Unique. Case-sensitive, which is why the migration had to fold case-duplicates. Two auth-service ids can hold one address before a merge, so `ensureLocalUser` mirrors the later one under a placeholder rather than failing ([ADR-0004](decisions/0004-an-email-collision-must-not-break-every-request.md)). |
 | `is_rooms_admin` | **A cache, not an authority, and it does not lapse.** Refreshed from the session, but only while that person keeps making authenticated requests, so a grant that expired at handover stays set here for good. The fan-out asks stage-door who holds the role and uses this column only when stage-door cannot be reached ([ADR-0009](decisions/0009-admin-fan-out-asks-stage-door-who-holds-the-role.md)). Never gate access on it. |
-| `notification_channels` | JSON array, e.g. `["EMAIL", "PUSH"]`. Unparseable values fall back to `["EMAIL"]`. |
+| `notification_channels` | JSON array, e.g. `["EMAIL", "PUSH"]`. Unparseable values fall back to `["EMAIL"]`. **Everything this app sends honours it, the admin fan-out included**: an admin with `EMAIL` off is not bcc'd, and since push delivers nothing, an empty array is silence ([ADR-0010](decisions/0010-admin-fan-out-honours-the-email-channel.md)). |
 | `notification_preferences` | JSON array, e.g. `["BOOKING_UPDATES"]`. Unparseable values fall back to `["BOOKING_UPDATES"]`. |
 | `anonymised_at` | Set by the erasure hook, and by the merge hook on the losing id. While it is non-null the row is never written back over, whichever caller asks. An erased id always keeps a row, because the column can only hold a write off while something carries it ([ADR-0006](decisions/0006-an-erased-id-always-keeps-a-tombstone-row.md)). `server/utils/mirrorUser.ts` is the one write path for the identity columns; `PUT /api/account/preferences` writes the two notification columns and carries the same `IS NULL` predicate, answering **409** when it matches nothing. |
 
-Account-security email ignores both notification columns.
+Account-security email ignores both notification columns. It is sent by stage-door, not by this
+app, and is the only mail that does.
 
 A merge that ran before the tombstone existed deleted the losing row, and a session that outlived
 it could then re-create the id with the person's real name and email. Nothing scrubs those rows

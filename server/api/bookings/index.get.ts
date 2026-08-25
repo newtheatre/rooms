@@ -35,6 +35,18 @@ defineRouteMeta({
         name: 'roomId',
         schema: { type: 'integer' },
         description: 'Filter by room ID'
+      },
+      {
+        in: 'query',
+        name: 'limit',
+        schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+        description: 'Page size, default 50'
+      },
+      {
+        in: 'query',
+        name: 'offset',
+        schema: { type: 'integer', minimum: 0, default: 0 },
+        description: 'Rows to skip, default 0'
       }
     ],
     responses: {
@@ -43,23 +55,31 @@ defineRouteMeta({
         content: {
           'application/json': {
             schema: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'integer' },
-                  userId: { type: 'string', nullable: true },
-                  roomId: { type: 'integer', nullable: true },
-                  externalVenueId: { type: 'integer', nullable: true },
-                  eventTitle: { type: 'string' },
-                  numberOfAttendees: { type: 'integer', nullable: true },
-                  startTime: { type: 'string', format: 'date-time' },
-                  endTime: { type: 'string', format: 'date-time' },
-                  status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'] },
-                  notes: { type: 'string', nullable: true },
-                  rejectionReason: { type: 'string', nullable: true },
-                  createdAt: { type: 'string', format: 'date-time' }
-                }
+              type: 'object',
+              properties: {
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'integer' },
+                      userId: { type: 'string', nullable: true },
+                      roomId: { type: 'integer', nullable: true },
+                      externalVenueId: { type: 'integer', nullable: true },
+                      eventTitle: { type: 'string' },
+                      numberOfAttendees: { type: 'integer', nullable: true },
+                      startTime: { type: 'string', format: 'date-time' },
+                      endTime: { type: 'string', format: 'date-time' },
+                      status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'AWAITING_EXTERNAL', 'REJECTED', 'CANCELLED'] },
+                      notes: { type: 'string', nullable: true },
+                      rejectionReason: { type: 'string', nullable: true },
+                      createdAt: { type: 'string', format: 'date-time' }
+                    }
+                  }
+                },
+                total: { type: 'integer' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' }
               }
             }
           }
