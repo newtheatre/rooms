@@ -4,9 +4,10 @@
  */
 import { db, schema } from '@nuxthub/db'
 import { eq } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { notifyBookingUpdate, notifyAdmins, bookingStatusMessage, formatBookingDateTime } from '~~/server/utils/notifications'
 import type { BookingPatch } from '~~/server/utils/bookingWrites'
-import { applyBookingChange } from '~~/server/utils/bookingWrites'
+import { applyBookingChange, planBookingChange } from '~~/server/utils/bookingWrites'
 import { isOpen, isSeriesMember, seriesBookings, seriesParentId } from '~~/server/utils/bookingSeries'
 
 defineRouteMeta({
@@ -135,13 +136,23 @@ export default defineEventHandler(async (event) => {
       ? (await seriesBookings(seriesParentId(existingBooking))).filter(isOpen)
       : [existingBooking]
 
+    // Planned first, then written together: a conflict on the seventh
+    // occurrence must not leave the first six confirmed and unnotified.
+    const planned: BatchItem<'sqlite'>[] = []
     for (const target of targets) {
       // Moving a whole series to one instant would stack every occurrence.
       const perTarget = target.id === existingBooking.id
         ? patch
         : { ...patch, startTime: undefined, endTime: undefined }
 
-      await applyBookingChange(target, perTarget, { allowConflicts })
+      const changes = await planBookingChange(target, perTarget, { allowConflicts })
+      planned.push(
+        db.update(schema.bookings).set(changes).where(eq(schema.bookings.id, target.id))
+      )
+    }
+
+    if (planned.length) {
+      await db.batch(planned as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]])
     }
 
     const updatedBooking = await findBooking(id)
