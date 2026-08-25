@@ -21,10 +21,16 @@ const {
   availableRooms,
   unavailableRooms,
   isLoading: availabilityLoading,
+  error: availabilityError,
+  hasAvailability,
   fetchAvailability,
   totalAvailable,
   totalUnavailable
 } = useRoomAvailability({ includeUnavailable: true })
+
+watch(availabilityError, (err) => {
+  if (err) showError(err, 'Could not check which rooms are free')
+})
 
 // Load available rooms (fallback if availability check hasn't run)
 const { data: rooms, status: roomsStatus, refresh: refreshRooms } = useLazyFetch('/api/rooms', {
@@ -47,8 +53,11 @@ watch(open, (isOpen) => {
 
 // Combine availability data with room data
 const roomItems = computed(() => {
+  // A failed check offers no rooms: an unbadged list would read as "all free".
+  if (availabilityError.value) return []
+
   // Use availability data if available, otherwise fall back to rooms data
-  const roomsWithAvailability = availableRooms.value.length > 0 || unavailableRooms.value.length > 0
+  const roomsWithAvailability = hasAvailability.value
     ? [...availableRooms.value, ...unavailableRooms.value]
     : rooms.value || []
 
@@ -409,7 +418,12 @@ async function onSubmit(event: FormSubmitEvent<FormSchema>) {
             </USelectMenu>
           </UFormField>
 
-          <template v-if="totalAvailable + totalUnavailable > 0">
+          <div v-if="availabilityError" class="mt-2 text-sm text-warning-600 dark:text-warning-400">
+            Could not check which rooms are free, so none are listed. Try again, or leave the
+            preference blank and an administrator will assign one.
+          </div>
+
+          <template v-else-if="totalAvailable + totalUnavailable > 0">
             <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
               <span class="font-medium text-success-600 dark:text-success-400">{{ totalAvailable }}</span> available,
               <span class="font-medium text-warning-600 dark:text-warning-400">{{ totalUnavailable }}</span> may have conflicts
