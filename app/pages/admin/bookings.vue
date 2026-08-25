@@ -103,6 +103,7 @@ const { data: venues } = await useFetch('/api/venues', {
 const bookingToEdit = ref<Booking | null>(null)
 const editModalOpen = ref(false)
 const bookingToReject = ref<Booking | null>(null)
+const bulkRejectModalOpen = ref(false)
 const bookingToDelete = ref<Booking | null>(null)
 
 // Bulk assignment states
@@ -470,12 +471,14 @@ function handleRecurringActionCancel() {
   recurringActionRejectionReason.value = ''
 }
 
-// Bulk reject selected bookings
-async function bulkReject() {
-  const pendingBookings = selectedBookings.value.filter(
-    b => b.status === 'PENDING' || b.status === 'AWAITING_EXTERNAL'
-  )
-  if (pendingBookings.length === 0) {
+// The rows a bulk reject will really take, which the button counts too.
+const bulkRejectTargets = computed(() => selectedBookings.value.filter(
+  b => b.status === 'PENDING' || b.status === 'AWAITING_EXTERNAL'
+))
+
+// Ask for a reason first: it is what the requester is shown.
+function bulkReject() {
+  if (bulkRejectTargets.value.length === 0) {
     toast.add({
       title: 'No pending bookings',
       description: 'Only pending or awaiting external bookings can be rejected',
@@ -485,16 +488,21 @@ async function bulkReject() {
     return
   }
 
+  bulkRejectModalOpen.value = true
+}
+
+async function handleBulkRejectConfirm(rejectionReason: string) {
+  const targets = bulkRejectTargets.value
+
   try {
-    // Use bulk endpoint
     await $fetch('/api/bookings/bulk', {
       method: 'PUT',
       body: {
-        updates: pendingBookings.map(b => ({
+        updates: targets.map(b => ({
           id: b.id,
           data: {
             status: 'REJECTED',
-            rejectionReason: 'Bulk rejection'
+            rejectionReason
           }
         }))
       }
@@ -502,7 +510,7 @@ async function bulkReject() {
 
     toast.add({
       title: 'Bookings rejected',
-      description: `${pendingBookings.length} booking(s) have been rejected`,
+      description: `${targets.length} booking(s) have been rejected`,
       icon: 'i-lucide-check',
       color: 'success'
     })
@@ -1081,7 +1089,7 @@ watch(() => statusFilter.value, (newVal) => {
             </UDropdownMenu>
 
             <UButton
-              v-if="selectedBookings.some(b => b.status === 'PENDING')"
+              v-if="bulkRejectTargets.length"
               label="Reject"
               color="warning"
               variant="subtle"
@@ -1090,7 +1098,7 @@ watch(() => statusFilter.value, (newVal) => {
             >
               <template #trailing>
                 <UKbd>
-                  {{ selectedBookings.filter(b => b.status === 'PENDING').length }}
+                  {{ bulkRejectTargets.length }}
                 </UKbd>
               </template>
             </UButton>
@@ -1202,6 +1210,12 @@ watch(() => statusFilter.value, (newVal) => {
       <BookingsRejectModal
         :booking="bookingToReject"
         @reject="handleRejectConfirm"
+      />
+
+      <BookingsBulkRejectModal
+        v-model:open="bulkRejectModalOpen"
+        :count="bulkRejectTargets.length"
+        @reject="handleBulkRejectConfirm"
       />
 
       <BookingsDeleteModal
